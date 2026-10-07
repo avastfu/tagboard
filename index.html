@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Tagboard</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tagboard">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='44' font-family='Courier New,monospace' font-weight='700' font-size='34' fill='%23fff' text-anchor='middle'%3E%23%3C/text%3E%3C/svg%3E">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important} body{margin:0} img{max-width:100%}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Instrument+Serif&display=swap">
+<style>
+/* Layout: terminal-feed — black ground, one centered column, top bar, search-style composer, sticky tag rail, stacked post cards */
+:root {
+  --bg: #000000;
+  --surface: #0A0A0A;
+  --raised: #171717;
+  --ink: #FFFFFF;
+  --text: #E5E5E5;
+  --muted: #A3A3A3;
+  --faint: #737373;
+  --line: #262626;
+  --line-strong: #404040;
+  --btn-bg: #FFFFFF;
+  --btn-ink: #000000;
+  --glow: 0 8px 40px rgba(255,255,255,.15), 0 2px 8px rgba(0,0,0,.8);
+  --danger: #F87171;
+  --mono: "Courier New", "Courier Prime", Courier, monospace;
+  --mark: "Instrument Serif", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #FFFFFF; --surface: #FAFAFA; --raised: #F0F0F0; --ink: #000000; --text: #171717;
+    --muted: #525252; --faint: #737373; --line: #E5E5E5; --line-strong: #D4D4D4;
+    --btn-bg: #000000; --btn-ink: #FFFFFF; --glow: 0 8px 30px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.12);
+    --danger: #B91C1C; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #FFFFFF; --surface: #FAFAFA; --raised: #F0F0F0; --ink: #000000; --text: #171717;
+  --muted: #525252; --faint: #737373; --line: #E5E5E5; --line-strong: #D4D4D4;
+  --btn-bg: #000000; --btn-ink: #FFFFFF; --glow: 0 8px 30px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.12);
+  --danger: #B91C1C; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--mono); font-weight: 700; font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 720px; margin: 0 auto; padding-inline: 16px; padding-block: 0 72px; display: flex; flex-direction: column; gap: 18px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; border-bottom: 1px solid var(--line); margin-inline: -16px; padding-inline: 16px; }
+h1 { font-family: var(--mark); font-weight: 400; font-size: 1.9rem; letter-spacing: -0.01em; margin: 0; line-height: 1; color: var(--muted); }
+h1 span { display: none; }
+.app { display: flex; flex-direction: column; gap: 18px; }
+.gate { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; padding-block: 72px 48px; }
+.gate h2 { font-family: var(--mono); font-weight: 700; font-size: 1.6rem; line-height: 1.2; margin: 0; color: var(--ink); text-wrap: balance; }
+.gate p { margin: 0; color: var(--muted); max-width: 34ch; font-size: 0.9rem; }
+.gate .gate-kicker { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); }
+.gate .btn { margin-top: 10px; padding: 12px 26px; font-size: 0.95rem; }
+.count:empty { display: none; }
+.sync { font-size: 0.68rem; color: var(--faint); padding-inline: 6px; white-space: nowrap; }
+.head-right { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.count { font-size: 0.75rem; color: var(--ink); border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
+
+.composer { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.composer input[type=text], .composer textarea { width: 100%; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; padding: 2px 0; }
+#title { font-size: 1.05rem; }
+#body { resize: vertical; min-height: 4.5em; color: var(--text); font-size: 0.9rem; }
+.composer input::placeholder, .composer textarea::placeholder { color: var(--faint); opacity: 1; }
+.tagfield { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.tagfield .hash { color: var(--faint); }
+#tagInput { flex: 1 1 140px; min-width: 0; font-size: 0.8rem !important; text-transform: uppercase; }
+#tagInput::placeholder { text-transform: none; }
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggest:empty { display: none; }
+.suggest .tag { border-style: dashed; color: var(--muted); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hint { font-size: 0.72rem; color: var(--faint); }
+.btn { font: 700 0.85rem var(--mono); background: var(--btn-bg); color: var(--btn-ink); border: 0; border-radius: 999px; padding: 9px 20px; cursor: pointer; box-shadow: var(--glow); transition: transform .15s ease, opacity .15s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+
+/* Tags: quiet outlined pills, uppercase. Per-tag colour classes intentionally neutral here. */
+.tag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); cursor: pointer; line-height: 1.5; white-space: nowrap; }
+.tag:hover { color: var(--ink); border-color: var(--muted); }
+.tag .x { opacity: 0.6; }
+.post .tag[aria-pressed=true], .tagfield .tag { background: var(--raised); color: var(--ink); border-color: var(--muted); }
+
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); padding-block: 10px; margin-block: -10px; overflow-x: auto; scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.rail-inner { display: flex; gap: 8px; width: max-content; }
+.filter { font: 700 0.72rem var(--mono); text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.filter:hover:not(:disabled) { color: var(--ink); }
+.filter b { font-weight: 700; color: var(--faint); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.filter[aria-pressed=true] { background: var(--btn-bg); color: var(--btn-ink); border-color: var(--btn-bg); }
+.filter[aria-pressed=true] b { color: inherit; opacity: 0.6; }
+.filter:disabled { opacity: 0.3; cursor: default; }
+
+.feed { display: flex; flex-direction: column; gap: 12px; }
+.post { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; transition: border-color .15s; }
+.post:hover { border-color: var(--line-strong); }
+.post-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.post h2 { font-family: var(--mono); font-weight: 700; font-size: 1rem; margin: 0; color: var(--ink); text-wrap: balance; min-width: 0; overflow-wrap: anywhere; }
+.when { font-size: 0.7rem; color: var(--faint); white-space: nowrap; }
+.post p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.875rem; color: var(--text); }
+.post-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.actions { display: flex; gap: 2px; }
+.del { background: none; border: 0; color: var(--faint); font: 700 0.72rem var(--mono); cursor: pointer; padding: 4px 8px; border-radius: 999px; }
+.del:hover { color: var(--ink); background: var(--raised); }
+.actions .del:last-child:hover { color: var(--danger); }
+.confirm { display: flex; gap: 8px; align-items: center; font-size: 0.75rem; color: var(--danger); flex-wrap: wrap; }
+.confirm button { font: 700 0.72rem var(--mono); border-radius: 999px; padding: 4px 12px; cursor: pointer; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); }
+.confirm .yes { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+.example { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); border: 1px dashed var(--line-strong); border-radius: 999px; padding: 2px 8px; }
+
+.post.editing { border-color: var(--muted); }
+.edit-form { display: flex; flex-direction: column; gap: 10px; }
+.edit-form input[type=text], .edit-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; padding: 9px 12px; }
+.edit-form .e-title { font-size: 1rem; }
+.edit-form textarea { resize: vertical; min-height: 6em; font-size: 0.875rem; color: var(--text); }
+.edit-form .e-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 7px 10px; }
+.edit-form .e-tags .tag { background: var(--raised); color: var(--ink); }
+.edit-form .e-tags input { flex: 1 1 120px; min-width: 0; border: 0 !important; padding: 2px !important; background: transparent !important; font-size: 0.8rem !important; text-transform: uppercase; outline: none; }
+.edit-form .e-tags input::placeholder { text-transform: none; color: var(--faint); }
+.edit-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.ghost { font: 700 0.85rem var(--mono); background: transparent; border: 1px solid var(--line-strong); color: var(--ink); border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.edited { font-style: italic; }
+
+.empty { text-align: center; color: var(--muted); padding: 44px 16px; border: 1px dashed var(--line-strong); border-radius: 12px; font-size: 0.85rem; }
+.empty strong { display: block; color: var(--ink); font-size: 1rem; margin-bottom: 6px; }
+.notice { font-size: 0.78rem; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; text-align: center; }
+.notice:empty { display: none; }
+
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.composer:focus-within { border-color: var(--line-strong); }
+@media (prefers-reduced-motion: no-preference) { .post.new { animation: pop .35s ease-out; } }
+@keyframes pop { from { transform: translateY(-6px); opacity: .4; } to { transform: none; opacity: 1; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Tagboard<span>.</span></h1>
+    <div class="head-right">
+      <span class="count" id="count"></span>
+      <span class="sync" id="syncState" hidden></span>
+      <button class="del" type="button" id="exportBtn">Export backup</button>
+      <button class="del" type="button" id="importBtn">Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <button class="del" type="button" id="signOutBtn" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <section class="gate" id="gate">
+    <p class="gate-kicker">Private · synced · saved for good</p>
+    <h2>Your notes, on every device.</h2>
+    <p id="gateMsg">Sign in with Google to open your notes. Only you can see them.</p>
+    <button class="btn" type="button" id="signInBtn" disabled>Sign in with Google</button>
+  </section>
+
+  <div class="app" id="app" hidden>
+  <form class="composer" id="composer" autocomplete="off">
+    <input type="text" id="title" placeholder="Title (optional)" maxlength="120">
+    <textarea id="body" placeholder="Get it out of your head…" maxlength="5000"></textarea>
+    <div class="tagfield" id="tagfield">
+      <span class="hash">#</span>
+      <span id="draftTags" class="tags"></span>
+      <input type="text" id="tagInput" placeholder="add tags · press Enter" maxlength="30">
+    </div>
+    <div class="suggest" id="suggest"></div>
+    <div class="row">
+      <span class="hint">Ctrl/⌘ + Enter to post</span>
+      <button class="btn" id="postBtn" type="submit" disabled>Post note</button>
+    </div>
+  </form>
+
+  <div class="notice" id="notice"></div>
+
+  <nav class="rail" aria-label="Filter by tag"><div class="rail-inner" id="rail"></div></nav>
+
+  <section class="feed" id="feed" aria-live="polite">
+    <div class="empty"><strong>Loading your notes…</strong>Your posts will show up here.</div>
+  </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let notes = [];          // [{id, title, body, tags, createdAt, example}]
+  let draftTags = [];
+  let activeTags = [];
+  let pendingDelete = null;
+  let editingId = null;
+  let editDraft = null;   // {title, body, tags}
+  let saving = false;
+  let justAdded = null;
+  let db = null;
+  let canWrite = true;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("tagboard.filters") || "[]");
+    if (Array.isArray(saved)) activeTags = saved.filter((t) => typeof t === "string");
+    const old = localStorage.getItem("tagboard.filter");
+    if (old && !activeTags.length) activeTags = [old];
+    localStorage.removeItem("tagboard.filter");
+  } catch (e) {}
+
+  const norm = (s) => s.trim().toLowerCase().replace(/^#+/, "").replace(/\s+/g, "-").replace(/[^\p{L}\p{N}_-]/gu, "").slice(0, 30);
+  function colorClass(tag) { let h = 0; for (const ch of tag) h = (h * 31 + ch.codePointAt(0)) >>> 0; return "c" + (h % 6 + 1); }
+  function when(ts) {
+    const d = new Date(ts), now = Date.now(), s = (now - ts) / 1000;
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    if (s < 86400) return Math.floor(s / 3600) + "h ago";
+    if (s < 86400 * 6) return Math.floor(s / 86400) + "d ago";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+  }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function tagCounts() {
+    const m = new Map();
+    for (const n of notes) for (const t of n.tags || []) m.set(t, (m.get(t) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }
+
+  // A post matches when it carries EVERY selected tag.
+  const matches = (n) => activeTags.every((t) => (n.tags || []).includes(t));
+  const tagList = () => activeTags.map((t) => "#" + t).join(" + ");
+
+  function renderRail() {
+    const rail = $("rail"); rail.textContent = "";
+    const counts = tagCounts();
+    const known = new Set(counts.map(([t]) => t));
+    if (notes.length) activeTags = activeTags.filter((t) => known.has(t));
+    const visible = notes.filter(matches);
+    // How many of the currently shown posts also carry each tag
+    const within = new Map();
+    for (const n of visible) for (const t of n.tags || []) within.set(t, (within.get(t) || 0) + 1);
+    const mk = (label, tag, n, pressed, disabled) => {
+      const b = el("button", "filter"); b.type = "button";
+      b.append(label); b.append(el("b", null, n));
+      b.setAttribute("aria-pressed", String(pressed));
+      if (disabled) { b.disabled = true; b.title = "No posts have this tag together with your selection"; }
+      b.onclick = () => (tag ? toggleTag(tag) : clearTags());
+      rail.append(b);
+    };
+    mk(activeTags.length ? "Clear" : "All", null, notes.length, !activeTags.length, false);
+    const selected = counts.filter(([t]) => activeTags.includes(t));
+    const others = counts.filter(([t]) => !activeTags.includes(t));
+    for (const [t] of selected) mk("#" + t, t, within.get(t) || 0, true, false);
+    for (const [t, n] of others) {
+      const c = activeTags.length ? (within.get(t) || 0) : n;
+      mk("#" + t, t, c, false, activeTags.length > 0 && c === 0);
+    }
+  }
+
+  function saveFilter() {
+    try { activeTags.length ? localStorage.setItem("tagboard.filters", JSON.stringify(activeTags)) : localStorage.removeItem("tagboard.filters"); } catch (e) {}
+  }
+  function afterFilterChange() {
+    saveFilter(); render();
+    window.scrollTo({ top: Math.min(window.scrollY, $("rail").parentElement.offsetTop - 8) });
+  }
+  function toggleTag(tag) {
+    activeTags = activeTags.includes(tag) ? activeTags.filter((t) => t !== tag) : [...activeTags, tag];
+    afterFilterChange();
+  }
+  function clearTags() { activeTags = []; afterFilterChange(); }
+
+  function renderFeed() {
+    const feed = $("feed"); feed.textContent = "";
+    const list = notes.filter(matches);
+    $("count").textContent = activeTags.length
+      ? `${list.length} with ${tagList()}`
+      : `${notes.length} note${notes.length === 1 ? "" : "s"}`;
+    if (!list.length) {
+      const e = el("div", "empty");
+      e.append(el("strong", null, notes.length ? "No posts have " + (activeTags.length > 1 ? "all of " : "") + tagList() : "No notes yet"));
+      e.append(notes.length ? "Remove a tag from the filter or tap Clear." : "Write your first note above and give it a tag or two.");
+      feed.append(e); return;
+    }
+    for (const n of list) {
+      if (n.id === editingId && editDraft) { feed.append(renderEditor(n)); continue; }
+      const card = el("article", "post" + (n.id === justAdded ? " new" : ""));
+      const head = el("div", "post-head");
+      if (n.title) head.append(el("h2", null, n.title)); else head.append(el("span"));
+      const meta = el("span", "when", when(n.createdAt));
+      if (n.editedAt) { meta.append(" · "); const ed = el("span", "edited", "edited"); ed.title = "Edited " + new Date(n.editedAt).toLocaleString(); meta.append(ed); }
+      head.append(meta);
+      card.append(head);
+      if (n.body) card.append(el("p", null, n.body));
+      const foot = el("div", "post-foot");
+      const tags = el("div", "tags");
+      for (const t of n.tags || []) {
+        const b = el("button", "tag " + colorClass(t), "#" + t); b.type = "button";
+        const on = activeTags.includes(t);
+        b.title = on ? "Remove #" + t + " from the filter" : "Add #" + t + " to the filter";
+        b.setAttribute("aria-pressed", String(on));
+        b.onclick = () => toggleTag(t); tags.append(b);
+      }
+      if (n.example) tags.append(el("span", "example", "example"));
+      foot.append(tags);
+      if (canWrite) {
+        if (pendingDelete === n.id) {
+          const c = el("div", "confirm"); c.append("Delete this note?");
+          const no = el("button", null, "Keep"); no.type = "button"; no.onclick = () => { pendingDelete = null; renderFeed(); };
+          const yes = el("button", "yes", "Delete"); yes.type = "button"; yes.onclick = () => removeNote(n.id);
+          c.append(no, yes); foot.append(c);
+        } else {
+          const acts = el("div", "actions");
+          const ed = el("button", "del", "Edit"); ed.type = "button";
+          ed.onclick = () => startEdit(n);
+          const d = el("button", "del", "Delete"); d.type = "button";
+          d.onclick = () => { pendingDelete = n.id; renderFeed(); };
+          acts.append(ed, d); foot.append(acts);
+        }
+      }
+      card.append(foot);
+      feed.append(card);
+    }
+    justAdded = null;
+  }
+
+  function startEdit(n) {
+    pendingDelete = null;
+    editingId = n.id;
+    editDraft = { title: n.title || "", body: n.body || "", tags: (n.tags || []).slice() };
+    renderFeed();
+    const t = document.getElementById("e-body"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+  }
+  function cancelEdit() { editingId = null; editDraft = null; renderFeed(); }
+
+  function renderEditor(n) {
+    const card = el("article", "post editing");
+    const form = el("form", "edit-form"); form.autocomplete = "off";
+    const ti = el("input", "e-title"); ti.type = "text"; ti.id = "e-title"; ti.placeholder = "Title (optional)"; ti.maxLength = 120; ti.value = editDraft.title;
+    ti.setAttribute("aria-label", "Title");
+    ti.oninput = () => { editDraft.title = ti.value; sync(); };
+    const bo = el("textarea"); bo.id = "e-body"; bo.placeholder = "Note"; bo.maxLength = 5000; bo.value = editDraft.body;
+    bo.setAttribute("aria-label", "Note");
+    bo.oninput = () => { editDraft.body = bo.value; sync(); };
+    const tagsBox = el("div", "e-tags");
+    const chips = el("span", "tags");
+    const tin = el("input"); tin.type = "text"; tin.id = "e-tag-input"; tin.placeholder = "add tag, press Enter"; tin.maxLength = 30;
+    tin.setAttribute("aria-label", "Add tag");
+    const drawChips = () => {
+      chips.textContent = "";
+      for (const t of editDraft.tags) {
+        const b = el("button", "tag " + colorClass(t)); b.type = "button";
+        b.append("#" + t, el("span", "x", "✕")); b.title = "Remove #" + t;
+        b.onclick = () => { editDraft.tags = editDraft.tags.filter((x) => x !== t); drawChips(); };
+        chips.append(b);
+      }
+    };
+    const addEditTag = (raw) => { const t = norm(raw); if (t && !editDraft.tags.includes(t) && editDraft.tags.length < 8) editDraft.tags.push(t); };
+    tin.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === "," || e.key === " ") {
+        if (tin.value.trim()) { e.preventDefault(); addEditTag(tin.value); tin.value = ""; drawChips(); }
+        else if (e.key === "Enter") e.preventDefault();
+      } else if (e.key === "Backspace" && !tin.value && editDraft.tags.length) { editDraft.tags.pop(); drawChips(); }
+      else if (e.key === "Escape") cancelEdit();
+    };
+    drawChips();
+    const hash = el("span", "hash", "#"); hash.style.fontFamily = "var(--mono)"; hash.style.color = "var(--muted)";
+    tagsBox.append(hash, chips, tin);
+    tagsBox.onclick = (e) => { if (e.target === tagsBox) tin.focus(); };
+
+    const btns = el("div", "edit-buttons");
+    const cancel = el("button", "ghost", "Cancel"); cancel.type = "button"; cancel.onclick = cancelEdit;
+    const save = el("button", "btn", saving ? "Saving…" : "Save changes"); save.type = "submit";
+    const sync = () => { save.disabled = saving || !(editDraft.title.trim() || editDraft.body.trim()); };
+    sync();
+    btns.append(cancel, save);
+
+    [ti, bo].forEach((f) => f.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") cancelEdit();
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(n.id, tin.value); }
+    }));
+    form.onsubmit = (e) => { e.preventDefault(); saveEdit(n.id, tin.value); };
+    form.append(ti, bo, tagsBox, btns);
+    card.append(form);
+    return card;
+  }
+
+  async function saveEdit(id, pendingTag) {
+    if (!editDraft || saving) return;
+    if (pendingTag && pendingTag.trim()) { const t = norm(pendingTag); if (t && !editDraft.tags.includes(t)) editDraft.tags.push(t); }
+    const title = editDraft.title.trim(), body = editDraft.body.trim();
+    if (!title && !body) return;
+    const changes = { title, body, tags: editDraft.tags.slice(), editedAt: Date.now(), example: false };
+    saving = true; renderFeed();
+    try {
+      if (db && !id.startsWith("local-")) await db.collection("notes").doc(id).update(changes);
+      else { const n = notes.find((x) => x.id === id); if (n) Object.assign(n, changes); }
+      saving = false; editingId = null; editDraft = null; notice("");
+      render();
+    } catch (e) {
+      saving = false;
+      notice("Your changes didn't save. Check your connection and try again.");
+      renderFeed();
+    }
+  }
+
+  function renderDraft() {
+    const box = $("draftTags"); box.textContent = "";
+    for (const t of draftTags) {
+      const b = el("button", "tag " + colorClass(t)); b.type = "button";
+      b.append("#" + t, el("span", "x", "✕")); b.title = "Remove #" + t;
+      b.onclick = () => { draftTags = draftTags.filter((x) => x !== t); renderDraft(); };
+      box.append(b);
+    }
+    const q = norm($("tagInput").value);
+    const sug = $("suggest"); sug.textContent = "";
+    const pool = tagCounts().map(([t]) => t).filter((t) => !draftTags.includes(t) && (!q || t.startsWith(q))).slice(0, 6);
+    if (document.activeElement === $("tagInput") || q) {
+      for (const t of pool) {
+        const b = el("button", "tag", "+ #" + t); b.type = "button";
+        b.onmousedown = (e) => e.preventDefault();
+        b.onclick = () => { addTag(t); $("tagInput").value = ""; renderDraft(); $("tagInput").focus(); };
+        sug.append(b);
+      }
+    }
+    updatePostBtn();
+  }
+
+  function addTag(raw) { const t = norm(raw); if (t && !draftTags.includes(t) && draftTags.length < 8) draftTags.push(t); }
+  function updatePostBtn() { $("postBtn").disabled = !canWrite || !($("body").value.trim() || $("title").value.trim()); }
+
+  let render = function () { renderRail(); renderFeed(); };
+
+  // ---- data
+  function notice(msg) { $("notice").textContent = msg || ""; }
+
+  async function submit() {
+    const title = $("title").value.trim(), body = $("body").value.trim();
+    if (!title && !body) return;
+    const pendingRaw = $("tagInput").value; if (pendingRaw.trim()) addTag(pendingRaw);
+    const note = { title, body, tags: draftTags.slice(), createdAt: Date.now() };
+    $("postBtn").disabled = true;
+    try {
+      if (db) {
+        const ref = db.collection("notes").doc();
+        justAdded = ref.id;
+        await ref.set(note);
+      } else {
+        const id = "local-" + Math.random().toString(36).slice(2);
+        justAdded = id; notes.unshift({ id, ...note }); render();
+      }
+      $("title").value = ""; $("body").value = ""; $("tagInput").value = ""; draftTags = [];
+      if (activeTags.length && !activeTags.every((t) => note.tags.includes(t))) { activeTags = []; saveFilter(); render(); }
+      renderDraft();
+    } catch (e) {
+      notice(e && e.code === "quota_exceeded" ? "Your board is full. Delete some old notes to make room." : "That note didn't save. Check your connection and try again.");
+      if (e && e.code === "invalid_argument") { canWrite = false; notice("You can read these notes but can't add new ones."); render(); }
+      updatePostBtn();
+    }
+  }
+
+  async function removeNote(id) {
+    pendingDelete = null;
+    try {
+      if (db && !id.startsWith("local-")) await db.collection("notes").doc(id).delete();
+      else { notes = notes.filter((n) => n.id !== id); render(); }
+    } catch (e) { notice("That note couldn't be deleted. Try again in a moment."); renderFeed(); }
+  }
+
+  // ---- events
+  $("composer").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+  $("body").addEventListener("input", updatePostBtn);
+  $("title").addEventListener("input", updatePostBtn);
+  $("body").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } });
+  const ti = $("tagInput");
+  ti.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      if (ti.value.trim()) { e.preventDefault(); addTag(ti.value); ti.value = ""; renderDraft(); }
+      else if (e.key === "Enter") { e.preventDefault(); if (e.metaKey || e.ctrlKey) submit(); }
+    } else if (e.key === "Backspace" && !ti.value && draftTags.length) { draftTags.pop(); renderDraft(); }
+  });
+  ti.addEventListener("input", renderDraft);
+  ti.addEventListener("focus", renderDraft);
+  ti.addEventListener("blur", () => setTimeout(renderDraft, 120));
+  $("tagfield").addEventListener("click", (e) => { if (e.target === e.currentTarget) ti.focus(); });
+  setInterval(() => { if (notes.length && !pendingDelete && !editingId && !document.activeElement?.closest?.(".post")) renderFeed(); }, 60000);
+
+  // ---- boot: Firebase (Google sign-in + Firestore, synced across devices, works offline)
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyC5zneNZG-Zs1vzpg7rtxQrafVaaYvNYNo",
+    authDomain: "avastfu-tagboard.firebaseapp.com",
+    projectId: "avastfu-tagboard",
+    storageBucket: "avastfu-tagboard.firebasestorage.app",
+    messagingSenderId: "806596615925",
+    appId: "1:806596615925:web:5a85c494152624104eefbc"
+  };
+  const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
+  let fb = null, uid = null, unsub = null;
+
+  const gate = $("gate"), app = $("app");
+  function showGate(msg, ready) {
+    gate.hidden = false; app.hidden = true; $("signOutBtn").hidden = true; $("exportBtn").hidden = true; $("importBtn").hidden = true;
+    $("count").textContent = ""; $("syncState").hidden = true;
+    if (msg) $("gateMsg").textContent = msg;
+    $("signInBtn").disabled = !ready;
+  }
+  function showApp() {
+    gate.hidden = true; app.hidden = false; $("signOutBtn").hidden = false; $("exportBtn").hidden = false; $("importBtn").hidden = false;
+  }
+
+  // Wraps a Firestore write so the UI never hangs while offline: the change shows instantly
+  // and syncs when the connection returns; real errors (like permissions) still surface.
+  function softWrite(p) {
+    return Promise.race([p, new Promise((r) => setTimeout(r, 1500))]);
+  }
+  function makeDb() {
+    const { doc, collection, setDoc, updateDoc, deleteDoc } = fb.fs;
+    const col = () => collection(fb.db, "users", uid, "notes");
+    return {
+      collection: () => ({
+        doc: (id) => {
+          const ref = id ? doc(col(), id) : doc(col());
+          return {
+            id: ref.id,
+            set: (data) => softWrite(setDoc(ref, data)),
+            update: (data) => softWrite(updateDoc(ref, data)),
+            delete: () => softWrite(deleteDoc(ref)),
+          };
+        },
+      }),
+    };
+  }
+
+  function listen() {
+    const { collection, query, orderBy, onSnapshot } = fb.fs;
+    if (unsub) unsub();
+    let first = true;
+    unsub = onSnapshot(
+      query(collection(fb.db, "users", uid, "notes"), orderBy("createdAt", "desc")),
+      { includeMetadataChanges: true },
+      (snap) => {
+        notes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const st = $("syncState");
+        st.hidden = false;
+        st.textContent = snap.metadata.hasPendingWrites ? "saving…" : (snap.metadata.fromCache && !navigator.onLine ? "offline · saved on device" : "synced");
+        if (editingId && !notes.some((n) => n.id === editingId)) { editingId = null; editDraft = null; }
+        if (editingId) renderRail(); else render();
+        if (first) { first = false; if (!notes.length) notice("No notes yet. Write one above, or tap Import to bring in a backup file."); else notice(""); }
+      },
+      (err) => notice("Couldn't load your notes (" + (err.code || "error") + "). Check your connection and reload.")
+    );
+  }
+
+  // Backup: export to a file; import merges into your synced notes (newer edit wins)
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify({ app: "tagboard", exportedAt: new Date().toISOString(), notes }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tagboard-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    notice("Backup saved to your downloads.");
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file || !fb || !uid) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const incoming = Array.isArray(data) ? data : data.notes;
+      if (!Array.isArray(incoming)) throw new Error("bad");
+      const { writeBatch, doc, collection } = fb.fs;
+      const byId = new Map(notes.map((n) => [n.id, n]));
+      const stamp = (x) => x.editedAt || x.createdAt || 0;
+      let batch = writeBatch(fb.db), inBatch = 0, added = 0, updated = 0;
+      const commits = [];
+      for (const n of incoming) {
+        if (!n || typeof n !== "object" || !n.id) continue;
+        const cur = byId.get(n.id);
+        if (cur && stamp(n) <= stamp(cur)) continue;
+        const { id, ...body } = n;
+        const clean = {
+          title: String(body.title || "").slice(0, 120),
+          body: String(body.body || "").slice(0, 5000),
+          tags: Array.isArray(body.tags) ? body.tags.map((t) => norm(String(t))).filter(Boolean).slice(0, 8) : [],
+          createdAt: Number(body.createdAt) || Date.now(),
+        };
+        if (body.editedAt) clean.editedAt = Number(body.editedAt);
+        if (body.example) clean.example = true;
+        batch.set(doc(collection(fb.db, "users", uid, "notes"), String(id).replace(/[\/]/g, "_")), clean);
+        cur ? updated++ : added++;
+        if (++inBatch === 400) { commits.push(batch.commit()); batch = writeBatch(fb.db); inBatch = 0; }
+      }
+      if (inBatch) commits.push(batch.commit());
+      await softWrite(Promise.all(commits));
+      notice(`Imported backup: ${added} new note${added === 1 ? "" : "s"}, ${updated} updated.`);
+    } catch (err) { notice("That file isn't a Tagboard backup. Pick the .json file you exported."); }
+  };
+
+  $("signInBtn").onclick = async () => {
+    if (!fb) return;
+    const { signInWithPopup, signInWithRedirect, GoogleAuthProvider } = fb.auth;
+    const provider = new GoogleAuthProvider();
+    $("signInBtn").disabled = true;
+    try { await signInWithPopup(fb.authInst, provider); }
+    catch (e) {
+      if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+        try { await signInWithRedirect(fb.authInst, provider); return; } catch (e2) { e = e2; }
+      }
+      if (e && e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        $("gateMsg").textContent = e.code === "auth/unauthorized-domain"
+          ? "This web address isn't approved in Firebase yet. Add it under Authentication → Settings → Authorized domains."
+          : "Sign-in didn't finish (" + (e.code || "error") + "). Try again.";
+      }
+    } finally { $("signInBtn").disabled = false; }
+  };
+  $("signOutBtn").onclick = async () => { if (fb) { if (unsub) { unsub(); unsub = null; } await fb.auth.signOut(fb.authInst); } };
+
+  render(); renderDraft();
+  showGate("Loading…", false);
+  (async () => {
+    if (!FIREBASE_CONFIG) { showGate("This copy isn't connected to a database yet.", false); return; }
+    try {
+      const [appMod, authMod, fsMod] = await Promise.all([
+        import(FB + "firebase-app.js"), import(FB + "firebase-auth.js"), import(FB + "firebase-firestore.js"),
+      ]);
+      const fbApp = appMod.initializeApp(FIREBASE_CONFIG);
+      let fdb;
+      try {
+        fdb = fsMod.initializeFirestore(fbApp, { localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() }) });
+      } catch (e) { fdb = fsMod.getFirestore(fbApp); }
+      const authInst = authMod.getAuth(fbApp);
+      try { await authMod.setPersistence(authInst, authMod.browserLocalPersistence); } catch (e) {}
+      fb = { app: fbApp, db: fdb, fs: fsMod, auth: authMod, authInst };
+      try { await authMod.getRedirectResult(authInst); } catch (e) {}
+      authMod.onAuthStateChanged(authInst, (user) => {
+        if (user) {
+          uid = user.uid; db = makeDb(); canWrite = true;
+          $("composer").hidden = false; showApp(); updatePostBtn(); listen();
+        } else {
+          uid = null; db = null; notes = []; activeTags = [];
+          if (unsub) { unsub(); unsub = null; }
+          showGate("Sign in with Google to open your notes. Only you can see them.", true);
+          render();
+        }
+      });
+    } catch (e) {
+      showGate("Couldn't reach the notes service. Check your connection and reload the page.", false);
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>
