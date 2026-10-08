@@ -165,12 +165,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
   <div class="app" id="app" hidden>
   <form class="composer" id="composer" autocomplete="off">
-    <input type="text" id="title" placeholder="Title (optional)" maxlength="120">
+    <input type="text" id="title" placeholder="Title" maxlength="120">
     <textarea id="body" placeholder="Get it out of your head…" maxlength="5000"></textarea>
     <div class="tagfield" id="tagfield">
       <span class="hash">#</span>
       <span id="draftTags" class="tags"></span>
-      <input type="text" id="tagInput" placeholder="add tags · press Enter" maxlength="30">
+      <input type="text" id="tagInput" placeholder="add tags" maxlength="30">
     </div>
     <div class="suggest" id="suggest"></div>
     <div class="row">
@@ -339,7 +339,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   function renderEditor(n) {
     const card = el("article", "post editing");
     const form = el("form", "edit-form"); form.autocomplete = "off";
-    const ti = el("input", "e-title"); ti.type = "text"; ti.id = "e-title"; ti.placeholder = "Title (optional)"; ti.maxLength = 120; ti.value = editDraft.title;
+    const ti = el("input", "e-title"); ti.type = "text"; ti.id = "e-title"; ti.placeholder = "Title"; ti.maxLength = 120; ti.value = editDraft.title;
     ti.setAttribute("aria-label", "Title");
     ti.oninput = () => { editDraft.title = ti.value; sync(); };
     const bo = el("textarea"); bo.id = "e-body"; bo.placeholder = "Note"; bo.maxLength = 5000; bo.value = editDraft.body;
@@ -347,7 +347,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     bo.oninput = () => { editDraft.body = bo.value; sync(); };
     const tagsBox = el("div", "e-tags");
     const chips = el("span", "tags");
-    const tin = el("input"); tin.type = "text"; tin.id = "e-tag-input"; tin.placeholder = "add tag, press Enter"; tin.maxLength = 30;
+    const tin = el("input"); tin.type = "text"; tin.id = "e-tag-input"; tin.placeholder = "add tags"; tin.maxLength = 30;
     tin.setAttribute("aria-label", "Add tag");
     const drawChips = () => {
       chips.textContent = "";
@@ -545,7 +545,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
         notes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const st = $("syncState");
         st.hidden = false;
-        st.textContent = snap.metadata.hasPendingWrites ? "saving…" : (snap.metadata.fromCache && !navigator.onLine ? "offline · saved on device" : "synced");
+        st.textContent = snap.metadata.hasPendingWrites ? "Saving…" : (snap.metadata.fromCache && !navigator.onLine ? "Offline · Saved on Device" : "Synced");
         if (editingId && !notes.some((n) => n.id === editingId)) { editingId = null; editDraft = null; }
         if (editingId) renderRail(); else render();
         if (first) { first = false; if (!notes.length) notice("No notes yet. Write one above, or tap Import to bring in a backup file."); else notice(""); }
