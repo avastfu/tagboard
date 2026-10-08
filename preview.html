@@ -646,7 +646,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   const composerPicker = makePlacePicker($("placeSlot"), () => draftPlace, (pl) => { draftPlace = pl; }, $("placeBtn"));
   $("placeBtn").onclick = () => composerPicker.toggle();
 
-  // ---- map: simplified street map (OpenFreeMap / OpenStreetMap data), black with white roads, names in English
+  // ---- map: simplified street map (OpenFreeMap / OpenStreetMap data), black with grey roads, names in English
   const mapEl = { overlay: $("mapOverlay"), card: $("mapCard"), empty: $("mapEmpty"), sub: $("mapSub") };
   let gl = null, glReady = null, activePin = null, mapNotes = [];
   const EN = ["coalesce", ["get", "name:en"], ["get", "name_en"], ["get", "name:latin"], ["get", "name"]];
@@ -660,10 +660,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
       else if (l.id === "water") { l.paint["fill-color"] = "#121212"; delete l.paint["fill-outline-color"]; }
       else if (l.id === "waterway") l.paint["line-color"] = "#1a1a1a";
       else if (line && /casing/.test(l.id)) l.paint["line-color"] = "#000";
-      else if (line && /motorway/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.6; }
-      else if (line && /major/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 9, 0.25, 14, 0.5]; }
-      else if (line && /minor/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 12, 0.06, 15, 0.3]; }
-      else if (line && /railway/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.15; }
+      else if (line && /motorway/.test(l.id)) { l.paint["line-color"] = "#8f8f8f"; l.paint["line-opacity"] = 0.85; }
+      else if (line && /major/.test(l.id)) { l.paint["line-color"] = "#7a7a7a"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 9, 0.45, 14, 0.85]; }
+      else if (line && /minor/.test(l.id)) { l.paint["line-color"] = "#5e5e5e"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 12, 0.15, 15, 0.75]; }
+      else if (line && /railway/.test(l.id)) { l.paint["line-color"] = "#5e5e5e"; l.paint["line-opacity"] = 0.35; }
       else if (line && /boundary/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.6; delete l.paint["line-dasharray"]; }
       else if (l.type === "symbol") {
         if (l.layout["text-field"]) l.layout["text-field"] = EN;
