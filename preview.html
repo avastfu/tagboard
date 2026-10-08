@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 <title>Tagboard</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tagboard">
@@ -178,18 +177,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .map-bar .bar-btns { display: flex; gap: 8px; }
 .map-stage { position: relative; flex: 1 1 auto; min-height: 0; }
 #mapCanvas { position: absolute; inset: 0; background: #000; }
-#mapCanvas .osm { filter: grayscale(1) invert(1) brightness(1.05) contrast(1.6); }
-#mapCanvas .leaflet-control-attribution { background: rgba(0,0,0,.7); color: #737373; font: 10px var(--mono); }
-#mapCanvas .leaflet-control-attribution a { color: #A3A3A3; }
-#mapCanvas .leaflet-bar { border: 0; box-shadow: none; display: flex; flex-direction: column; gap: 6px; }
-#mapCanvas .leaflet-bar a { display: grid; place-items: center; width: 36px; height: 36px; line-height: 1; border-radius: 999px !important; border: 1px solid #404040; background: #0A0A0A; color: #fff; font: 700 1.1rem var(--mono); }
-#mapCanvas .leaflet-bar a:hover { background: #171717; }
-.tb-pin { background: none; border: 0; }
-.tb-pin i { position: absolute; left: 0; top: 0; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px #000; }
-.tb-pin b { position: absolute; left: 17px; top: -3px; white-space: nowrap; font: 700 12px var(--mono); color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 2px #000; pointer-events: none; }
-.tb-pin.active i { background: #000; box-shadow: 0 0 0 2px #fff; }
-.tb-cluster { background: none; border: 0; }
-.tb-cluster span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #000; font: 700 12px var(--mono); box-shadow: 0 0 0 2px #000, 0 0 0 3px #fff; }
+#mapCanvas .maplibregl-ctrl-attrib { background: rgba(0,0,0,.7); color: #737373; font: 10px var(--mono); }
+#mapCanvas .maplibregl-ctrl-attrib a { color: #A3A3A3; }
+#mapCanvas .maplibregl-ctrl-attrib-button { filter: invert(1); background-color: transparent; }
+#mapCanvas .maplibregl-ctrl-group { background: transparent; box-shadow: none; display: flex; flex-direction: column; gap: 6px; }
+#mapCanvas .maplibregl-ctrl-group button { width: 36px; height: 36px; border-radius: 999px; border: 1px solid #404040 !important; background: #0A0A0A; }
+#mapCanvas .maplibregl-ctrl-group button + button { border-top: 1px solid #404040; }
+#mapCanvas .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
+#mapCanvas .maplibregl-canvas { cursor: grab; }
 .map-card { position: absolute; z-index: 1000; left: 16px; bottom: 24px; right: 72px; max-width: 360px; background: #0A0A0A; border: 1px solid #404040; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .map-card h3 { margin: 0; font: 700 0.95rem var(--mono); color: #fff; }
 .map-card .addr { font-size: 0.72rem; color: #A3A3A3; }
@@ -267,8 +262,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -384,7 +378,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
       const head = el("div", "post-head");
       if (n.title) head.append(el("h2", null, n.title)); else head.append(el("span"));
       const meta = el("span", "when", when(n.createdAt));
-      if (n.editedAt) { meta.append(" · "); const ed = el("span", "edited", "edited"); ed.title = "Edited " + new Date(n.editedAt).toLocaleString(); meta.append(ed); }
       head.append(meta);
       card.dataset.id = n.id;
       card.append(head);
@@ -538,7 +531,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   function addTag(raw) { const t = norm(raw); if (t && !draftTags.includes(t) && draftTags.length < 8) draftTags.push(t); }
   function updatePostBtn() { $("postBtn").disabled = !canWrite || !($("body").value.trim() || $("title").value.trim()); }
 
-  let render = function () { renderRail(); renderFeed(); if (lmap && !mapEl.overlay.hidden) drawPins(); };
+  let render = function () { renderRail(); renderFeed(); if (gl && !mapEl.overlay.hidden) drawPins(); };
 
   // ---- data
   function notice(msg) { $("notice").textContent = msg || ""; }
@@ -653,61 +646,105 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   const composerPicker = makePlacePicker($("placeSlot"), () => draftPlace, (pl) => { draftPlace = pl; }, $("placeBtn"));
   $("placeBtn").onclick = () => composerPicker.toggle();
 
-  // ---- map: OpenStreetMap streets, shown black with white roads and names
+  // ---- map: simplified street map (OpenFreeMap / OpenStreetMap data), black with white roads, names in English
   const mapEl = { overlay: $("mapOverlay"), card: $("mapCard"), empty: $("mapEmpty"), sub: $("mapSub") };
-  let lmap = null, cluster = null, activePin = null, mapNotes = [];
-  const markers = new Map();
-  function buildMap() {
-    if (lmap) return lmap;
-    if (!window.L || !L.markerClusterGroup) return null;
-    lmap = L.map("mapCanvas", { zoomControl: false, worldCopyJump: true, minZoom: 2 }).setView([30, 10], 2);
-    L.control.zoom({ position: "bottomright" }).addTo(lmap);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      className: "osm", maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
-    }).addTo(lmap);
-    cluster = L.markerClusterGroup({
-      showCoverageOnHover: false, maxClusterRadius: 46, spiderfyOnMaxZoom: true,
-      iconCreateFunction: (c) => L.divIcon({ html: `<span>${c.getChildCount()}</span>`, className: "tb-cluster", iconSize: [30, 30] }),
+  let gl = null, glReady = null, activePin = null, mapNotes = [];
+  const EN = ["coalesce", ["get", "name:en"], ["get", "name_en"], ["get", "name:latin"], ["get", "name"]];
+  function simplifyStyle(style) {
+    // keep water, roads, rail, borders and place/road names; drop buildings, land use, airports, footpaths and icons
+    const drop = /^(building|aeroway|road_oneway|road_area_pier|road_pier|landcover|landuse|railway_minor|railway_transit|railway_dashline|highway_path|highway_major_subtle|highway_motorway_subtle|place_other|boundary_state)/;
+    style.layers = style.layers.filter((l) => !drop.test(l.id)).map((l) => {
+      l = JSON.parse(JSON.stringify(l)); l.paint = l.paint || {}; l.layout = l.layout || {};
+      const line = l.type === "line";
+      if (l.type === "background") l.paint["background-color"] = "#000";
+      else if (l.id === "water") { l.paint["fill-color"] = "#121212"; delete l.paint["fill-outline-color"]; }
+      else if (l.id === "waterway") l.paint["line-color"] = "#1a1a1a";
+      else if (line && /casing/.test(l.id)) l.paint["line-color"] = "#000";
+      else if (line && /motorway/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.6; }
+      else if (line && /major/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 9, 0.25, 14, 0.5]; }
+      else if (line && /minor/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 12, 0.06, 15, 0.3]; }
+      else if (line && /railway/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.15; }
+      else if (line && /boundary/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.6; delete l.paint["line-dasharray"]; }
+      else if (l.type === "symbol") {
+        if (l.layout["text-field"]) l.layout["text-field"] = EN;
+        delete l.layout["icon-image"];
+        l.paint["text-color"] = /^place_(country|city)/.test(l.id) ? "#fff" : /water_name/.test(l.id) ? "#7a7a7a" : "#d4d4d4";
+        l.paint["text-halo-color"] = "#000"; l.paint["text-halo-width"] = 1.4; l.paint["text-halo-blur"] = 0;
+      }
+      return l;
     });
-    lmap.addLayer(cluster);
-    lmap.on("click", () => { if (activePin) hideCard(); });
-    return lmap;
+    return style;
   }
-  function pinIcon(label, active) {
-    const wrap = document.createElement("div");
-    wrap.append(document.createElement("i"));
-    const b = document.createElement("b"); b.textContent = label; wrap.append(b);
-    return L.divIcon({ html: wrap, className: "tb-pin" + (active ? " active" : ""), iconSize: [12, 12], iconAnchor: [6, 6] });
+  function placesGeoJSON() {
+    return { type: "FeatureCollection", features: mapNotes.map((n) => ({
+      type: "Feature", geometry: { type: "Point", coordinates: [n.place.lng, n.place.lat] },
+      properties: { id: n.id, label: n.place.name || n.title || "Place" },
+    })) };
+  }
+  function buildMap() {
+    if (gl) return glReady;
+    if (!window.maplibregl) return null;
+    glReady = (async () => {
+      const res = await fetch("https://tiles.openfreemap.org/styles/dark");
+      if (!res.ok) throw new Error("style " + res.status);
+      const style = simplifyStyle(await res.json());
+      gl = new maplibregl.Map({ container: "mapCanvas", style, center: [10, 30], zoom: 1.5, attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false });
+      gl.touchZoomRotate.disableRotation();
+      gl.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+      await new Promise((r) => gl.on("load", r));
+      const font = ["Noto Sans Bold"];
+      gl.addSource("notes", { type: "geojson", data: placesGeoJSON(), cluster: true, clusterRadius: 46, clusterMaxZoom: 15 });
+      gl.addLayer({ id: "clusters", type: "circle", source: "notes", filter: ["has", "point_count"],
+        paint: { "circle-color": "#fff", "circle-radius": ["step", ["get", "point_count"], 15, 10, 18], "circle-stroke-color": "#000", "circle-stroke-width": 2 } });
+      gl.addLayer({ id: "cluster-count", type: "symbol", source: "notes", filter: ["has", "point_count"],
+        layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": font, "text-size": 12, "text-allow-overlap": true },
+        paint: { "text-color": "#000" } });
+      gl.addLayer({ id: "pins", type: "circle", source: "notes", filter: ["!", ["has", "point_count"]],
+        paint: { "circle-color": ["case", ["==", ["get", "id"], ""], "#000", "#fff"], "circle-radius": 6, "circle-stroke-color": ["case", ["==", ["get", "id"], ""], "#fff", "#000"], "circle-stroke-width": 2 } });
+      gl.addLayer({ id: "pin-labels", type: "symbol", source: "notes", filter: ["!", ["has", "point_count"]],
+        layout: { "text-field": ["get", "label"], "text-font": font, "text-size": 12, "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true },
+        paint: { "text-color": "#fff", "text-halo-color": "#000", "text-halo-width": 1.6 } });
+      gl.on("click", "clusters", async (e) => {
+        const f = e.features[0]; const src = gl.getSource("notes");
+        const z = await src.getClusterExpansionZoom(f.properties.cluster_id);
+        gl.easeTo({ center: f.geometry.coordinates, zoom: Math.min(z + 0.5, 17) });
+      });
+      gl.on("click", "pins", (e) => { e.originalEvent.stopPropagation(); showCard(e.features[0].properties.id); });
+      gl.on("click", (e) => { if (!gl.queryRenderedFeatures(e.point, { layers: ["pins", "clusters"] }).length && activePin) hideCard(); });
+      for (const id of ["clusters", "pins"]) {
+        gl.on("mouseenter", id, () => { gl.getCanvas().style.cursor = "pointer"; });
+        gl.on("mouseleave", id, () => { gl.getCanvas().style.cursor = ""; });
+      }
+      return gl;
+    })();
+    glReady.catch(() => { gl = null; glReady = null; });
+    return glReady;
+  }
+  function markActive() {
+    if (!gl || !gl.getLayer("pins")) return;
+    const id = activePin || "";
+    gl.setPaintProperty("pins", "circle-color", ["case", ["==", ["get", "id"], id], "#000", "#fff"]);
+    gl.setPaintProperty("pins", "circle-stroke-color", ["case", ["==", ["get", "id"], id], "#fff", "#000"]);
   }
   function drawPins() {
-    cluster.clearLayers(); markers.clear();
     mapNotes = notes.filter(matches).filter((n) => validPlace(n.place));
-    for (const n of mapNotes) {
-      const label = n.place.name || n.title || "Place";
-      const m = L.marker([n.place.lat, n.place.lng], { icon: pinIcon(label, n.id === activePin), title: label, keyboard: true, riseOnHover: true });
-      m.on("click", () => showCard(n.id));
-      cluster.addLayer(m); markers.set(n.id, m);
-    }
+    if (gl && gl.getSource("notes")) gl.getSource("notes").setData(placesGeoJSON());
+    markActive();
     const without = notes.filter(matches).length - mapNotes.length;
     mapEl.sub.textContent = `${mapNotes.length} place${mapNotes.length === 1 ? "" : "s"}` + (activeTags.length ? ` with ${tagList()}` : "") + (without > 0 ? ` · ${without} note${without === 1 ? "" : "s"} without a location` : "");
     mapEl.empty.hidden = mapNotes.length > 0;
     mapEl.empty.textContent = "No places yet. Tap the pin next to a note's title to add a location.";
   }
   function fitAll(animate) {
-    if (!mapNotes.length) { lmap.setView([30, 10], 2); return; }
-    const b = L.latLngBounds(mapNotes.map((n) => [n.place.lat, n.place.lng]));
-    lmap.fitBounds(b, { padding: [60, 60], maxZoom: 15, animate: !!animate });
+    if (!mapNotes.length) { gl.jumpTo({ center: [10, 30], zoom: 1.5 }); return; }
+    const b = new maplibregl.LngLatBounds();
+    mapNotes.forEach((n) => b.extend([n.place.lng, n.place.lat]));
+    gl.fitBounds(b, { padding: 70, maxZoom: 15, animate: !!animate, duration: animate ? 700 : 0 });
   }
-  function hideCard() {
-    const prev = activePin; activePin = null; mapEl.card.hidden = true;
-    const n = prev && notes.find((x) => x.id === prev); const m = prev && markers.get(prev);
-    if (n && m) m.setIcon(pinIcon(n.place.name || n.title || "Place", false));
-  }
+  function hideCard() { activePin = null; mapEl.card.hidden = true; markActive(); }
   function showCard(id) {
     const n = notes.find((x) => x.id === id);
     if (!n || !validPlace(n.place)) return;
-    if (activePin && activePin !== id) hideCard();
     activePin = id;
     const c = mapEl.card; c.textContent = "";
     c.append(el("h3", null, n.title || n.place.name));
@@ -718,7 +755,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     open.onclick = () => { closeMap(); revealPost(id); };
     const x = el("button", "x", "Close"); x.type = "button"; x.onclick = hideCard;
     row.append(open, x); c.append(row); c.hidden = false;
-    const m = markers.get(id); if (m) m.setIcon(pinIcon(n.place.name || n.title || "Place", true));
+    markActive();
   }
   function revealPost(id) {
     if (activeTags.length && !notes.find((n) => n.id === id && matches(n))) { activeTags = []; saveFilter(); render(); }
@@ -728,19 +765,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     card.classList.add("flash"); setTimeout(() => card.classList.remove("flash"), 1600);
   }
   let lastFocus = null;
-  function openMap(focusId) {
-    if (!buildMap()) { notice("The map couldn't load. Check your connection and reload the page."); return; }
+  async function openMap(focusId) {
     lastFocus = document.activeElement;
     mapEl.overlay.hidden = false; document.body.style.overflow = "hidden";
     activePin = null; mapEl.card.hidden = true;
-    setTimeout(() => {
-      lmap.invalidateSize();
-      drawPins();
-      const m = focusId && markers.get(focusId);
-      if (m) { lmap.setView(m.getLatLng(), 16, { animate: false }); cluster.zoomToShowLayer(m, () => showCard(focusId)); }
-      else fitAll(false);
-      $("mapClose").focus();
-    }, 0);
+    $("mapClose").focus();
+    const ready = buildMap();
+    if (!ready) { closeMap(); notice("The map couldn't load. Check your connection and reload the page."); return; }
+    try { await ready; } catch (e) { closeMap(); notice("The map couldn't load. Check your connection and reload the page."); return; }
+    gl.resize();
+    drawPins();
+    const n = focusId && mapNotes.find((x) => x.id === focusId);
+    if (n) { gl.jumpTo({ center: [n.place.lng, n.place.lat], zoom: 15.5 }); showCard(focusId); }
+    else fitAll(false);
   }
   function closeMap() {
     mapEl.overlay.hidden = true; document.body.style.overflow = "";
