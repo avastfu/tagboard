@@ -194,6 +194,42 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .map-card .x { background: none; border: 0; color: #A3A3A3; font: inherit; cursor: pointer; }
 .map-empty { position: absolute; z-index: 900; inset: 0; display: grid; place-items: center; text-align: center; color: #A3A3A3; font-size: 0.85rem; padding: 24px; pointer-events: none; }
 .map-overlay :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* 2027 calendar: always black like the map, grey grid, white pencil drawings */
+.cal-overlay { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); font-family: var(--mono); }
+.cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #262626; }
+.cal-bar h2 { margin: 0; font: 400 1.5rem var(--mark); color: #A3A3A3; }
+.cal-bar .icon-btn { color: #fff; border-color: #404040; }
+.cal-nav { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; }
+.cal-nav h3 { margin: 0; flex: 1 1 auto; text-align: center; font: 700 1.05rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.cal-nav .icon-btn { color: #fff; border-color: #404040; font: 700 1rem var(--mono); }
+.cal-chips { display: flex; gap: 6px; overflow-x: auto; padding: 6px 16px 10px; scrollbar-width: none; }
+.cal-chips::-webkit-scrollbar { display: none; }
+.cal-chip { flex: none; font: 700 0.7rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; border: 1px solid #404040; background: #0A0A0A; color: #A3A3A3; cursor: pointer; }
+.cal-chip[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; }
+.cal-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 16px 10px; }
+.cal-tool { font: 700 0.72rem var(--mono); padding: 6px 12px; border-radius: 999px; border: 1px solid #404040; background: transparent; color: #E5E5E5; cursor: pointer; }
+.cal-tool[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; }
+.cal-tool:disabled { opacity: 0.35; cursor: default; }
+.cal-tools .sep { width: 1px; height: 20px; background: #262626; margin-inline: 4px; }
+.cal-status { margin-left: auto; font-size: 0.68rem; color: #737373; }
+.cal-scroller { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 16px; }
+.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); min-width: 100%; }
+.cal-week span { font-size: 0.66rem; letter-spacing: 0.1em; color: #737373; padding: 4px 6px; }
+.cal-bar, .cal-nav, .cal-chips, .cal-tools { flex: none; }
+.cal-board { position: relative; width: 100%; aspect-ratio: 7 / 8; }
+.cal-cells { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); border-top: 1px solid #262626; border-left: 1px solid #262626; }
+.cal-cell { border-right: 1px solid #262626; border-bottom: 1px solid #262626; padding: 6px 7px; min-width: 0; }
+.cal-cell.out { background: #050505; }
+.cal-day { font-size: 0.8rem; font-weight: 700; color: #A3A3A3; }
+.cal-board canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.cal-board.erasing canvas { cursor: cell; }
+.cal-board.move canvas { touch-action: auto; cursor: grab; pointer-events: none; }
+.cal-confirm { position: absolute; z-index: 5; left: 50%; top: 40%; transform: translate(-50%, -50%); background: #0A0A0A; border: 1px solid #404040; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; max-width: min(320px, 90vw); font-size: 0.85rem; }
+.cal-confirm .row { display: flex; justify-content: flex-end; gap: 8px; }
+.cal-confirm .yes { background: #F87171; color: #000; border-color: #F87171; }
+.cal-overlay :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (min-width: 700px) { .cal-scroller { display: flex; flex-direction: column; align-items: center; } .cal-inner { width: min(100%, 900px); } }
+@media (max-width: 640px) { .cal-cell { padding: 3px 4px; } .cal-day { font-size: 0.68rem; } }
 </style>
 
 <div class="wrap">
@@ -206,6 +242,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
       <button class="del" type="button" id="importBtn">Import</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
       <button class="del" type="button" id="signOutBtn" hidden>Sign out</button>
+      <button class="icon-btn" type="button" id="calBtn" hidden aria-label="Open 2027 calendar" title="2027 calendar"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></button>
       <button class="icon-btn" type="button" id="mapBtn" aria-label="Open map" title="Map" hidden><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg></button>
     </div>
   </header>
@@ -244,6 +281,43 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   <section class="feed" id="feed" aria-live="polite">
     <div class="empty"><strong>Loading your notes…</strong>Your posts will show up here.</div>
   </section>
+  </div>
+</div>
+
+<div class="cal-overlay" id="calOverlay" hidden role="dialog" aria-modal="true" aria-label="2027 calendar">
+  <div class="cal-bar">
+    <h2>2027</h2>
+    <button class="icon-btn" type="button" id="calClose" aria-label="Close calendar">&#10005;</button>
+  </div>
+  <div class="cal-nav">
+    <button class="icon-btn" type="button" id="calPrev" aria-label="Previous month">&lsaquo;</button>
+    <h3 id="calMonth" aria-live="polite"></h3>
+    <button class="icon-btn" type="button" id="calNext" aria-label="Next month">&rsaquo;</button>
+  </div>
+  <div class="cal-chips" id="calChips" role="group" aria-label="Months"></div>
+  <div class="cal-tools" id="calTools">
+    <button class="cal-tool" type="button" data-tool="pencil" aria-pressed="true">Pencil</button>
+    <button class="cal-tool" type="button" id="calSize" title="Pencil thickness">Fine</button>
+    <button class="cal-tool" type="button" data-tool="eraser" aria-pressed="false">Eraser</button>
+    <button class="cal-tool" type="button" data-tool="move" aria-pressed="false" title="Scroll without drawing">Move</button>
+    <span class="sep"></span>
+    <button class="cal-tool" type="button" id="calUndo" disabled>Undo</button>
+    <button class="cal-tool" type="button" id="calClear" disabled>Clear month</button>
+    <button class="cal-tool" type="button" id="calZoom">Zoom in</button>
+    <span class="cal-status" id="calStatus"></span>
+  </div>
+  <div class="cal-scroller" id="calScroller">
+    <div class="cal-inner">
+      <div class="cal-week" aria-hidden="true"><span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span></div>
+      <div class="cal-board" id="calBoard">
+        <div class="cal-cells" id="calCells"></div>
+        <canvas id="calCanvas" aria-label="Drawing area for this month"></canvas>
+        <div class="cal-confirm" id="calConfirm" hidden role="alertdialog" aria-label="Clear this month">
+          <span>Erase every drawing on this month? This can't be undone.</span>
+          <div class="row"><button class="cal-tool" type="button" id="calClearNo">Keep</button><button class="cal-tool yes" type="button" id="calClearYes">Clear month</button></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -788,6 +862,229 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   $("zoomFit").onclick = () => { hideCard(); fitAll(true); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !mapEl.overlay.hidden) closeMap(); });
 
+  // ---- 2027 calendar you can draw on: one board per month, rough white pencil, saved per stroke
+  const CAL_YEAR = 2027;
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const cal = {
+    el: { overlay: $("calOverlay"), board: $("calBoard"), canvas: $("calCanvas"), cells: $("calCells"), month: $("calMonth"), chips: $("calChips"), scroller: $("calScroller"), status: $("calStatus"), confirm: $("calConfirm") },
+    month: 0, tool: "pencil", size: "fine", zoom: 1,
+    strokes: [],      // saved strokes for the month, oldest first: {id, t, w, e, p:[x,y,pr,...]}
+    pending: new Map(), // strokes drawn here that the store hasn't echoed yet
+    mine: [],         // ids drawn in this visit, for Undo
+    unsub: null, live: null, ctx: null, dpr: 1, lastFocus: null,
+  };
+  try { const m = Number(localStorage.getItem("tagboard.calMonth")); if (m >= 0 && m < 12) cal.month = m; } catch (e) {}
+
+  // small seeded random generator, so a stroke redraws with exactly the same grain every time
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hashId(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  // Pencil: stamps of tiny, semi-transparent white grains scattered along the path, thicker with more pressure
+  function pencilSegment(ctx, s, rand, x0, y0, p0, x1, y1, p1, W) {
+    const base = (s.w || 2.2) * W / 1000;
+    const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(len / Math.max(0.7, base * 0.35)));
+    for (let i = 0; i < steps; i++) {
+      const f = i / steps, pr = p0 + (p1 - p0) * f;
+      const r = base * (0.55 + pr * 0.9);
+      const cx = x0 + dx * f, cy = y0 + dy * f;
+      const grains = 2 + Math.round(r * 0.9);
+      for (let g = 0; g < grains; g++) {
+        const ang = rand() * Math.PI * 2, rad = r * Math.sqrt(rand());
+        const sz = (0.5 + rand() * 1.1) * cal.dpr;
+        ctx.globalAlpha = (0.12 + rand() * 0.38) * (0.6 + pr * 0.6);
+        ctx.fillRect(cx + Math.cos(ang) * rad - sz / 2, cy + Math.sin(ang) * rad - sz / 2, sz, sz);
+      }
+    }
+  }
+  function eraserSegment(ctx, s, x0, y0, x1, y1, W) {
+    ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = 1;
+    ctx.lineWidth = (s.w || 2.2) * W / 1000 * 7; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.globalCompositeOperation = "source-over";
+  }
+  function drawStroke(ctx, s, from) {
+    const W = ctx.canvas.width, H = ctx.canvas.height, p = s.p;
+    if (!s._rand || !from) s._rand = rng(hashId(s.id));
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#fff";
+    const start = Math.max(3, (from || 0) * 3);
+    if (!from) { // every stroke starts with a dot (so a single tap leaves a mark)
+      if (s.e) eraserSegment(ctx, s, p[0] * W, p[1] * H, p[0] * W + 0.1, p[1] * H, W);
+      else pencilSegment(ctx, s, s._rand, p[0] * W, p[1] * H, p[2], p[0] * W + 0.5, p[1] * H + 0.5, p[2], W);
+    }
+    for (let i = start; i < p.length; i += 3) {
+      const x0 = p[i - 3] * W, y0 = p[i - 2] * H, x1 = p[i] * W, y1 = p[i + 1] * H;
+      if (s.e) eraserSegment(ctx, s, x0, y0, x1, y1, W);
+      else pencilSegment(ctx, s, s._rand, x0, y0, p[i - 1], x1, y1, p[i + 2], W);
+    }
+    ctx.globalAlpha = 1;
+  }
+  function redraw() {
+    const ctx = cal.ctx; if (!ctx) return;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const ids = new Set(cal.strokes.map((s) => s.id));
+    const all = cal.strokes.concat([...cal.pending.values()].filter((s) => !ids.has(s.id)));
+    all.sort((a, b) => a.t - b.t);
+    for (const s of all) drawStroke(ctx, s, 0);
+    if (cal.live) drawStroke(ctx, cal.live, 0);
+  }
+  function sizeCanvas() {
+    const c = cal.el.canvas, r = cal.el.board.getBoundingClientRect();
+    cal.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const w = Math.max(1, Math.round(r.width * cal.dpr)), h = Math.max(1, Math.round(r.height * cal.dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    cal.ctx = c.getContext("2d");
+    redraw();
+  }
+
+  // Month grid: Sunday-first, always six rows so every month board has the same shape (drawings keep their place)
+  function renderMonth() {
+    const m = cal.month, first = new Date(CAL_YEAR, m, 1), days = new Date(CAL_YEAR, m + 1, 0).getDate(), lead = first.getDay();
+    cal.el.month.textContent = MONTHS[m] + " " + CAL_YEAR;
+    const cells = cal.el.cells; cells.textContent = "";
+    for (let i = 0; i < 42; i++) {
+      const d = i - lead + 1, cell = el("div", "cal-cell" + (d < 1 || d > days ? " out" : ""));
+      if (d >= 1 && d <= days) {
+        const dow = (lead + d - 1) % 7;
+        cell.append(el("span", "cal-day", String(d)));
+        cell.setAttribute("aria-label", `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dow]}, ${MONTHS[m]} ${d}`);
+      }
+      cells.append(cell);
+    }
+    [...cal.el.chips.children].forEach((b, i) => b.setAttribute("aria-pressed", String(i === m)));
+    const chip = cal.el.chips.children[m]; if (chip) chip.scrollIntoView({ block: "nearest", inline: "center" });
+    try { localStorage.setItem("tagboard.calMonth", String(m)); } catch (e) {}
+    subscribeMonth();
+  }
+  function monthPath() { return "doodles/" + CAL_YEAR + "-" + String(cal.month + 1).padStart(2, "0") + "/strokes"; }
+  function subscribeMonth() {
+    if (cal.unsub) { cal.unsub(); cal.unsub = null; }
+    cal.strokes = []; cal.pending.clear(); cal.mine = []; updateCalButtons(); redraw();
+    if (!db) { cal.el.status.textContent = "Drawings here won't be saved in this view."; return; }
+    cal.el.status.textContent = "Loading…";
+    try {
+      cal.unsub = db.collection(monthPath()).orderBy("t", "asc").onSnapshot((snap) => {
+        cal.strokes = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => Array.isArray(s.p));
+        for (const s of cal.strokes) cal.pending.delete(s.id);
+        cal.el.status.textContent = snap.metadata.hasPendingWrites ? "Saving…" : "Saved";
+        redraw(); updateCalButtons();
+      }, () => { cal.el.status.textContent = "Couldn't load this month's drawings. Reopen the calendar to try again."; });
+    } catch (e) { cal.el.status.textContent = "Couldn't load this month's drawings."; }
+  }
+  async function saveStroke(s) {
+    if (!db) return;
+    const { id, _rand, ...data } = s;
+    cal.el.status.textContent = "Saving…";
+    try { await db.collection(monthPath()).doc(id).set(data); cal.el.status.textContent = "Saved"; }
+    catch (e) {
+      cal.pending.delete(id); cal.mine = cal.mine.filter((x) => x !== id); redraw(); updateCalButtons();
+      cal.el.status.textContent = e && e.code === "quota_exceeded" ? "Storage is full. Clear an old month to make room." : "That stroke didn't save. Check your connection.";
+    }
+  }
+
+  // Drawing input
+  function pointFrom(e) {
+    const r = cal.el.board.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    const pr = e.pointerType === "pen" && e.pressure > 0 ? e.pressure : 0.5;
+    return [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4, Math.round(pr * 100) / 100];
+  }
+  const canDraw = () => canWrite && cal.tool !== "move";
+  cal.el.canvas.addEventListener("pointerdown", (e) => {
+    if (!canDraw() || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.preventDefault(); cal.el.canvas.setPointerCapture(e.pointerId);
+    const id = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    cal.live = { id, t: Date.now(), w: cal.tool === "eraser" ? 4 : cal.size === "bold" ? 5 : 2.6, e: cal.tool === "eraser", p: pointFrom(e) };
+    cal.live._rand = rng(hashId(id));
+    drawStroke(cal.ctx, cal.live, 0);
+  });
+  cal.el.canvas.addEventListener("pointermove", (e) => {
+    const s = cal.live; if (!s) return;
+    e.preventDefault();
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    const W = cal.ctx.canvas.width;
+    for (const ev of evs.length ? evs : [e]) {
+      const pt = pointFrom(ev), n = s.p.length;
+      if (Math.hypot((pt[0] - s.p[n - 3]) * W, (pt[1] - s.p[n - 2]) * cal.ctx.canvas.height) < 1.5 * cal.dpr) continue;
+      if (n >= 12000) break;
+      s.p.push(...pt);
+      drawStroke(cal.ctx, s, s.p.length / 3 - 1);
+    }
+  });
+  const endStroke = () => {
+    const s = cal.live; if (!s) return;
+    cal.live = null;
+    cal.pending.set(s.id, s); cal.mine.push(s.id); updateCalButtons();
+    saveStroke(s);
+  };
+  cal.el.canvas.addEventListener("pointerup", endStroke);
+  cal.el.canvas.addEventListener("pointercancel", endStroke);
+
+  // Tools
+  function setTool(t) {
+    cal.tool = t;
+    for (const b of document.querySelectorAll("[data-tool]")) b.setAttribute("aria-pressed", String(b.dataset.tool === t));
+    cal.el.board.classList.toggle("move", t === "move");
+    cal.el.board.classList.toggle("erasing", t === "eraser");
+  }
+  function updateCalButtons() {
+    $("calUndo").disabled = !canWrite || !cal.mine.length;
+    $("calClear").disabled = !canWrite || !(cal.strokes.length || cal.pending.size);
+  }
+  document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => setTool(b.dataset.tool)));
+  $("calSize").onclick = () => { cal.size = cal.size === "fine" ? "bold" : "fine"; $("calSize").textContent = cal.size === "fine" ? "Fine" : "Bold"; if (cal.tool !== "pencil") setTool("pencil"); };
+  $("calUndo").onclick = async () => {
+    const id = cal.mine.pop(); if (!id) return;
+    cal.pending.delete(id); cal.strokes = cal.strokes.filter((s) => s.id !== id); redraw(); updateCalButtons();
+    if (db) { try { await db.collection(monthPath()).doc(id).delete(); } catch (e) { cal.el.status.textContent = "Undo didn't save. Check your connection."; } }
+  };
+  $("calClear").onclick = () => { cal.el.confirm.hidden = false; $("calClearNo").focus(); };
+  $("calClearNo").onclick = () => { cal.el.confirm.hidden = true; };
+  $("calClearYes").onclick = async () => {
+    cal.el.confirm.hidden = true;
+    const ids = cal.strokes.map((s) => s.id).concat([...cal.pending.keys()]);
+    cal.strokes = []; cal.pending.clear(); cal.mine = []; redraw(); updateCalButtons();
+    if (db) { cal.el.status.textContent = "Clearing…"; for (const id of ids) { try { await db.collection(monthPath()).doc(id).delete(); } catch (e) {} } cal.el.status.textContent = "Cleared"; }
+  };
+  $("calZoom").onclick = () => {
+    cal.zoom = cal.zoom === 1 ? 2 : 1;
+    $("calZoom").textContent = cal.zoom === 1 ? "Zoom in" : "Zoom out";
+    cal.el.board.style.width = cal.zoom === 1 ? "" : "200%";
+    requestAnimationFrame(sizeCanvas);
+  };
+  $("calPrev").onclick = () => { cal.month = (cal.month + 11) % 12; renderMonth(); };
+  $("calNext").onclick = () => { cal.month = (cal.month + 1) % 12; renderMonth(); };
+  MONTHS.forEach((name, i) => {
+    const b = el("button", "cal-chip", name.slice(0, 3)); b.type = "button";
+    b.onclick = () => { cal.month = i; renderMonth(); };
+    cal.el.chips.append(b);
+  });
+
+  function openCal() {
+    cal.lastFocus = document.activeElement;
+    cal.el.overlay.hidden = false; document.body.style.overflow = "hidden";
+    $("calTools").hidden = !canWrite;
+    setTool(cal.tool);
+    renderMonth();
+    requestAnimationFrame(sizeCanvas);
+    $("calClose").focus();
+  }
+  function closeCal() {
+    cal.el.overlay.hidden = true; document.body.style.overflow = "";
+    if (cal.unsub) { cal.unsub(); cal.unsub = null; }
+    if (cal.lastFocus && cal.lastFocus.focus) cal.lastFocus.focus();
+  }
+  $("calBtn").onclick = openCal;
+  $("calClose").onclick = closeCal;
+  document.addEventListener("keydown", (e) => {
+    if (cal.el.overlay.hidden) return;
+    if (e.key === "Escape") { if (!cal.el.confirm.hidden) cal.el.confirm.hidden = true; else closeCal(); }
+    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); $("calUndo").click(); }
+    else if (e.key === "ArrowLeft" && e.target === document.body) $("calPrev").click();
+    else if (e.key === "ArrowRight" && e.target === document.body) $("calNext").click();
+  });
+  window.addEventListener("resize", () => { if (!cal.el.overlay.hidden) sizeCanvas(); });
+
   // ---- events
   $("composer").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
   $("body").addEventListener("input", updatePostBtn);
@@ -820,13 +1117,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
   const gate = $("gate"), app = $("app");
   function showGate(msg, ready) {
-    gate.hidden = false; app.hidden = true; $("signOutBtn").hidden = true; $("mapBtn").hidden = true; $("exportBtn").hidden = true; $("importBtn").hidden = true;
+    gate.hidden = false; app.hidden = true; $("signOutBtn").hidden = true; $("mapBtn").hidden = true; $("calBtn").hidden = true; if (!cal.el.overlay.hidden) closeCal(); $("exportBtn").hidden = true; $("importBtn").hidden = true;
     $("count").textContent = ""; $("syncState").hidden = true;
     if (msg) $("gateMsg").textContent = msg;
     $("signInBtn").disabled = !ready;
   }
   function showApp() {
-    gate.hidden = true; app.hidden = false; $("signOutBtn").hidden = false; $("mapBtn").hidden = false; $("exportBtn").hidden = false; $("importBtn").hidden = false;
+    gate.hidden = true; app.hidden = false; $("signOutBtn").hidden = false; $("mapBtn").hidden = false; $("calBtn").hidden = false; $("exportBtn").hidden = false; $("importBtn").hidden = false;
   }
 
   // Wraps a Firestore write so the UI never hangs while offline: the change shows instantly
@@ -835,20 +1132,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     return Promise.race([p, new Promise((r) => setTimeout(r, 1500))]);
   }
   function makeDb() {
-    const { doc, collection, setDoc, updateDoc, deleteDoc } = fb.fs;
-    const col = () => collection(fb.db, "users", uid, "notes");
+    const { doc, collection, setDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot } = fb.fs;
     return {
-      collection: () => ({
-        doc: (id) => {
-          const ref = id ? doc(col(), id) : doc(col());
-          return {
-            id: ref.id,
-            set: (data) => softWrite(setDoc(ref, data)),
-            update: (data) => softWrite(updateDoc(ref, data)),
-            delete: () => softWrite(deleteDoc(ref)),
-          };
-        },
-      }),
+      collection: (path) => {
+        const segs = String(path || "notes").split("/");
+        const col = () => collection(fb.db, "users", uid, ...segs);
+        return {
+          doc: (id) => {
+            const ref = id ? doc(col(), id) : doc(col());
+            return {
+              id: ref.id,
+              set: (data) => softWrite(setDoc(ref, data)),
+              update: (data) => softWrite(updateDoc(ref, data)),
+              delete: () => softWrite(deleteDoc(ref)),
+            };
+          },
+          orderBy: (field, dir) => ({
+            onSnapshot: (next, err) => onSnapshot(query(col(), orderBy(field, dir || "asc")), { includeMetadataChanges: true }, next, err),
+          }),
+        };
+      },
     };
   }
 
