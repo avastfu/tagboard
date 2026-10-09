@@ -212,24 +212,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .cal-tool:disabled { opacity: 0.35; cursor: default; }
 .cal-tools .sep { width: 1px; height: 20px; background: #262626; margin-inline: 4px; }
 .cal-status { margin-left: auto; font-size: 0.68rem; color: #737373; }
-.cal-scroller { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 16px; }
-.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); min-width: 100%; }
+.cal-scroller { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 16px; touch-action: none; overscroll-behavior: contain; }
+.cal-page { margin-inline: auto; }
+.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); min-width: 100%; position: sticky; top: 0; z-index: 2; background: #000; border-bottom: 1px solid #262626; }
 .cal-week span { font-size: 0.66rem; letter-spacing: 0.1em; color: #737373; padding: 4px 6px; }
 .cal-bar, .cal-nav, .cal-chips, .cal-tools { flex: none; }
 .cal-board { position: relative; width: 100%; aspect-ratio: 7 / 8; }
 .cal-cells { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); border-top: 1px solid #262626; border-left: 1px solid #262626; }
 .cal-cell { border-right: 1px solid #262626; border-bottom: 1px solid #262626; padding: 6px 7px; min-width: 0; }
 .cal-cell.out { background: #050505; }
-.cal-day { font-size: 0.8rem; font-weight: 700; color: #A3A3A3; }
+.cal-day { font-size: calc(0.8rem * var(--z, 1)); font-weight: 700; color: #A3A3A3; }
 .cal-board canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 .cal-board.erasing canvas { cursor: cell; }
-.cal-board.move canvas { touch-action: auto; cursor: grab; pointer-events: none; }
+.cal-board.move canvas { cursor: grab; }
+.cal-board.move.grabbing canvas { cursor: grabbing; }
+.cal-zoomval { min-width: 4.2em; text-align: center; font-size: 0.72rem; color: #A3A3A3; font-variant-numeric: tabular-nums; }
 .cal-confirm { position: absolute; z-index: 5; left: 50%; top: 40%; transform: translate(-50%, -50%); background: #0A0A0A; border: 1px solid #404040; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; max-width: min(320px, 90vw); font-size: 0.85rem; }
 .cal-confirm .row { display: flex; justify-content: flex-end; gap: 8px; }
 .cal-confirm .yes { background: #F87171; color: #000; border-color: #F87171; }
 .cal-overlay :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-@media (min-width: 700px) { .cal-scroller { display: flex; flex-direction: column; align-items: center; } .cal-inner { width: min(100%, 900px); } }
-@media (max-width: 640px) { .cal-cell { padding: 3px 4px; } .cal-day { font-size: 0.68rem; } }
+@media (max-width: 640px) { .cal-cell { padding: 3px 4px; } .cal-day { font-size: calc(0.68rem * var(--z, 1)); } }
 </style>
 
 <div class="wrap">
@@ -303,11 +305,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     <span class="sep"></span>
     <button class="cal-tool" type="button" id="calUndo" disabled>Undo</button>
     <button class="cal-tool" type="button" id="calClear" disabled>Clear month</button>
-    <button class="cal-tool" type="button" id="calZoom">Zoom in</button>
+    <span class="sep"></span>
+    <button class="cal-tool" type="button" id="calZoomOut" aria-label="Zoom out">&minus;</button>
+    <span class="cal-zoomval" id="calZoomVal" aria-live="polite">100%</span>
+    <button class="cal-tool" type="button" id="calZoomIn" aria-label="Zoom in">+</button>
+    <button class="cal-tool" type="button" id="calZoomFit">Fit</button>
     <span class="cal-status" id="calStatus"></span>
   </div>
   <div class="cal-scroller" id="calScroller">
-    <div class="cal-inner">
+    <div class="cal-page" id="calPage">
       <div class="cal-week" aria-hidden="true"><span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span></div>
       <div class="cal-board" id="calBoard">
         <div class="cal-cells" id="calCells"></div>
@@ -866,7 +872,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   const CAL_YEAR = 2027;
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const cal = {
-    el: { overlay: $("calOverlay"), board: $("calBoard"), canvas: $("calCanvas"), cells: $("calCells"), month: $("calMonth"), chips: $("calChips"), scroller: $("calScroller"), status: $("calStatus"), confirm: $("calConfirm") },
+    el: { overlay: $("calOverlay"), board: $("calBoard"), canvas: $("calCanvas"), cells: $("calCells"), month: $("calMonth"), chips: $("calChips"), scroller: $("calScroller"), page: $("calPage"), status: $("calStatus"), confirm: $("calConfirm") },
     month: 0, tool: "pencil", size: "fine", zoom: 1,
     strokes: [],      // saved strokes for the month, oldest first: {id, t, w, e, p:[x,y,pr,...]}
     pending: new Map(), // strokes drawn here that the store hasn't echoed yet
@@ -930,7 +936,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   }
   function sizeCanvas() {
     const c = cal.el.canvas, r = cal.el.board.getBoundingClientRect();
-    cal.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const want = Math.min(window.devicePixelRatio || 1, 2.5);
+    cal.dpr = Math.min(want, Math.sqrt(16e6 / Math.max(1, r.width * r.height)));
     const w = Math.max(1, Math.round(r.width * cal.dpr)), h = Math.max(1, Math.round(r.height * cal.dpr));
     if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     cal.ctx = c.getContext("2d");
@@ -991,10 +998,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   }
   const canDraw = () => canWrite && cal.tool !== "move";
   cal.el.canvas.addEventListener("pointerdown", (e) => {
-    if (!canDraw() || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (!canDraw() || cal.gesture || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.preventDefault(); cal.el.canvas.setPointerCapture(e.pointerId);
     const id = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    cal.live = { id, t: Date.now(), w: cal.tool === "eraser" ? 4 : cal.size === "bold" ? 5 : 2.6, e: cal.tool === "eraser", p: pointFrom(e) };
+    cal.live = { id, t: Date.now(), w: (cal.tool === "eraser" ? 4 : cal.size === "bold" ? 5 : 2.6) / cal.zoom, e: cal.tool === "eraser", p: pointFrom(e) };
     cal.live._rand = rng(hashId(id));
     drawStroke(cal.ctx, cal.live, 0);
   });
@@ -1046,12 +1053,93 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     cal.strokes = []; cal.pending.clear(); cal.mine = []; redraw(); updateCalButtons();
     if (db) { cal.el.status.textContent = "Clearing…"; for (const id of ids) { try { await db.collection(monthPath()).doc(id).delete(); } catch (e) {} } cal.el.status.textContent = "Cleared"; }
   };
-  $("calZoom").onclick = () => {
-    cal.zoom = cal.zoom === 1 ? 2 : 1;
-    $("calZoom").textContent = cal.zoom === 1 ? "Zoom in" : "Zoom out";
-    cal.el.board.style.width = cal.zoom === 1 ? "" : "200%";
-    requestAnimationFrame(sizeCanvas);
+  // ---- zoom: pinch, Ctrl/⌘ + scroll, − / + buttons, double-tap a day (Move), Fit
+  const ZMIN = 1, ZMAX = 6;
+  let sizeQueued = false;
+  function queueSize() { if (sizeQueued) return; sizeQueued = true; requestAnimationFrame(() => { sizeQueued = false; sizeCanvas(); }); }
+  function fitWidth() { const sc = cal.el.scroller; return Math.max(200, Math.min(sc.clientWidth - 32, 900)); }
+  function applyZoom() {
+    cal.el.page.style.width = Math.round(fitWidth() * cal.zoom) + "px";
+    cal.el.page.style.setProperty("--z", String(Math.min(cal.zoom, 3)));
+    $("calZoomVal").textContent = Math.round(cal.zoom * 100) + "%";
+    $("calZoomOut").disabled = cal.zoom <= ZMIN + 0.001; $("calZoomIn").disabled = cal.zoom >= ZMAX - 0.001;
+    queueSize();
+  }
+  // zoom keeping the point under (clientX, clientY) fixed on screen
+  function setZoom(z, clientX, clientY) {
+    z = Math.min(ZMAX, Math.max(ZMIN, z));
+    const sc = cal.el.scroller, sr = sc.getBoundingClientRect(), pr = cal.el.page.getBoundingClientRect();
+    if (clientX == null) { clientX = sr.left + sr.width / 2; clientY = sr.top + sr.height / 2; }
+    const fx = (clientX - pr.left) / pr.width, fy = (clientY - pr.top) / pr.height;
+    cal.zoom = z; applyZoom();
+    const nr = cal.el.page.getBoundingClientRect();
+    sc.scrollLeft += (nr.left + fx * nr.width) - clientX;
+    sc.scrollTop += (nr.top + fy * nr.height) - clientY;
+  }
+  $("calZoomIn").onclick = () => setZoom(cal.zoom * 1.5);
+  $("calZoomOut").onclick = () => setZoom(cal.zoom / 1.5);
+  $("calZoomFit").onclick = () => { setZoom(1); cal.el.scroller.scrollTo(0, 0); };
+  cal.el.scroller.addEventListener("wheel", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return; // plain scroll moves around; Ctrl/⌘ + scroll (and trackpad pinch) zooms
+    e.preventDefault();
+    setZoom(cal.zoom * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
+  }, { passive: false });
+  // touch / pen / mouse gestures on the calendar area
+  const pts = new Map();
+  let pan = null;
+  cal.el.scroller.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".cal-confirm")) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      // second finger: stop any stroke in progress and start pinching
+      if (cal.live) { cal.live = null; redraw(); }
+      const [a, b] = [...pts.values()];
+      cal.gesture = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cal.zoom, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      pan = null;
+    } else if (pts.size === 1 && cal.tool === "move" && !(e.pointerType === "mouse" && e.button !== 0)) {
+      pan = { x: e.clientX, y: e.clientY, sl: cal.el.scroller.scrollLeft, st: cal.el.scroller.scrollTop };
+      cal.el.board.classList.add("grabbing");
+      try { cal.el.scroller.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  }, true);
+  cal.el.scroller.addEventListener("pointermove", (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = cal.gesture;
+    if (g && pts.size >= 2) {
+      e.preventDefault();
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      setZoom(g.z * d / Math.max(1, g.d), mx, my);
+      cal.el.scroller.scrollLeft -= mx - g.mx; cal.el.scroller.scrollTop -= my - g.my;
+      g.mx = mx; g.my = my;
+    } else if (pan) {
+      cal.el.scroller.scrollLeft = pan.sl - (e.clientX - pan.x);
+      cal.el.scroller.scrollTop = pan.st - (e.clientY - pan.y);
+    }
+  });
+  const lift = (e) => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2 && cal.gesture) { cal.gesture = pts.size ? cal.gesture : null; if (!pts.size) cal.gesture = null; }
+    if (!pts.size) { pan = null; cal.gesture = null; cal.el.board.classList.remove("grabbing"); }
   };
+  cal.el.scroller.addEventListener("pointerup", lift);
+  cal.el.scroller.addEventListener("pointercancel", lift);
+  // double-tap / double-click a day in Move mode: zoom so that day fills most of the screen
+  cal.el.scroller.addEventListener("dblclick", (e) => {
+    if (cal.tool !== "move") return;
+    const bb = cal.el.board.getBoundingClientRect();
+    if (e.clientX < bb.left || e.clientX > bb.right || e.clientY < bb.top || e.clientY > bb.bottom) return;
+    const sc = cal.el.scroller, br = cal.el.board.getBoundingClientRect();
+    const col = Math.floor((e.clientX - br.left) / (br.width / 7)), row = Math.floor((e.clientY - br.top) / (br.height / 6));
+    const cw = fitWidth() / 7, ch = fitWidth() * (8 / 7) / 6; // a day box at 100%
+    const target = Math.min(ZMAX, (sc.clientWidth * 0.9) / cw, (sc.clientHeight * 0.9) / ch);
+    const z = cal.zoom >= target * 0.95 ? 1 : target;
+    setZoom(z);
+    const nb = cal.el.board.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    const cx = nb.left + (col + 0.5) * nb.width / 7, cy = nb.top + (row + 0.5) * nb.height / 6;
+    sc.scrollLeft += cx - (sr.left + sr.width / 2); sc.scrollTop += cy - (sr.top + sr.height / 2);
+  });
   $("calPrev").onclick = () => { cal.month = (cal.month + 11) % 12; renderMonth(); };
   $("calNext").onclick = () => { cal.month = (cal.month + 1) % 12; renderMonth(); };
   MONTHS.forEach((name, i) => {
@@ -1066,7 +1154,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     $("calTools").hidden = !canWrite;
     setTool(cal.tool);
     renderMonth();
-    requestAnimationFrame(sizeCanvas);
+    requestAnimationFrame(applyZoom);
     $("calClose").focus();
   }
   function closeCal() {
@@ -1083,7 +1171,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     else if (e.key === "ArrowLeft" && e.target === document.body) $("calPrev").click();
     else if (e.key === "ArrowRight" && e.target === document.body) $("calNext").click();
   });
-  window.addEventListener("resize", () => { if (!cal.el.overlay.hidden) sizeCanvas(); });
+  window.addEventListener("resize", () => { if (!cal.el.overlay.hidden) applyZoom(); });
 
   // ---- events
   $("composer").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
