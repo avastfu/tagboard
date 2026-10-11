@@ -1,0 +1,1577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Tagboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tagboard">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='44' font-family='Courier New,monospace' font-weight='700' font-size='34' fill='%23fff' text-anchor='middle'%3E%23%3C/text%3E%3C/svg%3E">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important} body{margin:0} img{max-width:100%}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Instrument+Serif&display=swap">
+<style>
+/* Layout: terminal-feed — black ground, one centered column, top bar, search-style composer, sticky tag rail, stacked post cards */
+:root {
+  --bg: #000000;
+  --surface: #0A0A0A;
+  --raised: #171717;
+  --ink: #FFFFFF;
+  --text: #E5E5E5;
+  --muted: #A3A3A3;
+  --faint: #737373;
+  --line: #262626;
+  --line-strong: #404040;
+  --btn-bg: #FFFFFF;
+  --btn-ink: #000000;
+  --glow: 0 8px 40px rgba(255,255,255,.15), 0 2px 8px rgba(0,0,0,.8);
+  --danger: #F87171;
+  --mono: "Courier New", "Courier Prime", Courier, monospace;
+  --mark: "Instrument Serif", Georgia, "Times New Roman", serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #FFFFFF; --surface: #FAFAFA; --raised: #F0F0F0; --ink: #000000; --text: #171717;
+    --muted: #525252; --faint: #737373; --line: #E5E5E5; --line-strong: #D4D4D4;
+    --btn-bg: #000000; --btn-ink: #FFFFFF; --glow: 0 8px 30px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.12);
+    --danger: #B91C1C; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #FFFFFF; --surface: #FAFAFA; --raised: #F0F0F0; --ink: #000000; --text: #171717;
+  --muted: #525252; --faint: #737373; --line: #E5E5E5; --line-strong: #D4D4D4;
+  --btn-bg: #000000; --btn-ink: #FFFFFF; --glow: 0 8px 30px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.12);
+  --danger: #B91C1C; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--mono); font-weight: 700; font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 0 72px; display: flex; flex-direction: column; gap: 18px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; border-bottom: 1px solid var(--line); margin-inline: -16px; padding-inline: 16px; }
+h1 { font-family: var(--mark); font-weight: 400; font-size: 1.9rem; letter-spacing: -0.01em; margin: 0; line-height: 1; color: var(--muted); }
+h1 span { display: none; }
+.app { display: flex; flex-direction: column; gap: 18px; }
+.gate { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; padding-block: 72px 48px; }
+.gate h2 { font-family: var(--mono); font-weight: 700; font-size: 1.6rem; line-height: 1.2; margin: 0; color: var(--ink); text-wrap: balance; }
+.gate p { margin: 0; color: var(--muted); max-width: 34ch; font-size: 0.9rem; }
+.gate .gate-kicker { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); }
+.gate .btn { margin-top: 10px; padding: 12px 26px; font-size: 0.95rem; }
+.count:empty { display: none; }
+.sync { font-size: 0.68rem; color: var(--faint); padding-inline: 6px; white-space: nowrap; }
+.head-right { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.count { font-size: 0.75rem; color: var(--ink); border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
+
+.composer { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.composer input[type=text], .composer textarea { width: 100%; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; padding: 2px 0; }
+#title { font-size: 1.05rem; }
+#body { resize: vertical; min-height: 4.5em; color: var(--text); font-size: 0.9rem; }
+.composer input::placeholder, .composer textarea::placeholder { color: var(--faint); opacity: 1; }
+.tagfield { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.tagfield .hash { color: var(--faint); }
+#tagInput { flex: 1 1 140px; min-width: 0; font-size: 0.8rem !important; text-transform: uppercase; }
+#tagInput::placeholder { text-transform: none; }
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggest:empty { display: none; }
+.suggest .tag { border-style: dashed; color: var(--muted); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hint { font-size: 0.72rem; color: var(--faint); }
+.btn { font: 700 0.85rem var(--mono); background: var(--btn-bg); color: var(--btn-ink); border: 0; border-radius: 999px; padding: 9px 20px; cursor: pointer; box-shadow: var(--glow); transition: transform .15s ease, opacity .15s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+
+/* Tags: quiet outlined pills, uppercase. Per-tag colour classes intentionally neutral here. */
+.tag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); cursor: pointer; line-height: 1.5; white-space: nowrap; }
+.tag:hover { color: var(--ink); border-color: var(--muted); }
+.tag .x { opacity: 0.6; }
+.post .tag[aria-pressed=true], .tagfield .tag { background: var(--raised); color: var(--ink); border-color: var(--muted); }
+
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); padding-block: 10px; margin-block: -10px; overflow-x: auto; scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.rail-inner { display: flex; gap: 8px; width: max-content; }
+.filter { font: 700 0.72rem var(--mono); text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.filter:hover:not(:disabled):not([aria-pressed=true]) { color: var(--ink); }
+.filter b { font-weight: 700; color: var(--faint); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.filter[aria-pressed=true] { background: var(--btn-bg); color: var(--btn-ink); border-color: var(--btn-bg); }
+.filter[aria-pressed=true] b { color: inherit; opacity: 0.6; }
+.filter:disabled { opacity: 0.3; cursor: default; }
+
+/* Feed: Pinterest-style tiles. Each post drops into whichever column is shorter, so the
+   newest posts stay near the top and read roughly left to right. One column on phones. */
+.feed { display: flex; flex-direction: column; gap: 12px; }
+.feed.tiles { flex-direction: row; align-items: flex-start; gap: 14px; }
+.feed .col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.post { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; transition: border-color .15s; }
+.post:hover { border-color: var(--line-strong); }
+.post-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.post h2 { font-family: var(--mono); font-weight: 700; font-size: 1rem; margin: 0; color: var(--ink); text-wrap: balance; min-width: 0; overflow-wrap: anywhere; }
+.when { font-size: 0.7rem; color: var(--faint); white-space: nowrap; }
+.post p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.875rem; color: var(--text); }
+.post-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.actions { display: flex; gap: 2px; }
+.del { background: none; border: 0; color: var(--faint); font: 700 0.72rem var(--mono); cursor: pointer; padding: 4px 8px; border-radius: 999px; }
+.del:hover { color: var(--ink); background: var(--raised); }
+.actions .del:last-child:hover { color: var(--danger); }
+.confirm { display: flex; gap: 8px; align-items: center; font-size: 0.75rem; color: var(--danger); flex-wrap: wrap; }
+.confirm button { font: 700 0.72rem var(--mono); border-radius: 999px; padding: 4px 12px; cursor: pointer; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); }
+.confirm .yes { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+.example { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); border: 1px dashed var(--line-strong); border-radius: 999px; padding: 2px 8px; }
+
+.post.editing { border-color: var(--muted); }
+.edit-form { display: flex; flex-direction: column; gap: 10px; }
+.edit-form input[type=text], .edit-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; padding: 9px 12px; }
+.edit-form .e-title { font-size: 1rem; }
+.edit-form textarea { resize: vertical; min-height: 6em; font-size: 0.875rem; color: var(--text); }
+.edit-form .e-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 7px 10px; }
+.edit-form .e-tags .tag { background: var(--raised); color: var(--ink); }
+.edit-form .e-tags input { flex: 1 1 120px; min-width: 0; border: 0 !important; padding: 2px !important; background: transparent !important; font-size: 0.8rem !important; text-transform: uppercase; outline: none; }
+.edit-form .e-tags input::placeholder { text-transform: none; color: var(--faint); }
+.edit-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.ghost { font: 700 0.85rem var(--mono); background: transparent; border: 1px solid var(--line-strong); color: var(--ink); border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.edited { font-style: italic; }
+
+.empty { text-align: center; color: var(--muted); padding: 44px 16px; border: 1px dashed var(--line-strong); border-radius: 12px; font-size: 0.85rem; }
+.empty strong { display: block; color: var(--ink); font-size: 1rem; margin-bottom: 6px; }
+.notice { font-size: 0.78rem; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; text-align: center; }
+.notice:empty { display: none; }
+
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.composer:focus-within { border-color: var(--line-strong); }
+@media (prefers-reduced-motion: no-preference) { .post.new { animation: pop .35s ease-out; } }
+@keyframes pop { from { transform: translateY(-6px); opacity: .4; } to { transform: none; opacity: 1; } }
+/* Location: pin button in the title row, place chip, address search */
+.title-row { display: flex; align-items: center; gap: 8px; }
+.title-row input { flex: 1 1 auto; min-width: 0; }
+.icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--muted); cursor: pointer; padding: 0; }
+.icon-btn:hover { color: var(--ink); border-color: var(--muted); }
+.icon-btn[aria-pressed=true] { background: var(--btn-bg); color: var(--btn-ink); border-color: var(--btn-bg); }
+.place-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 0.75rem; color: var(--ink); background: var(--raised); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 6px 4px 10px; align-self: flex-start; }
+.place-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.place-chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit; padding: 0 4px; }
+.place-search { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--bg); }
+.place-search .ps-row { display: flex; gap: 6px; }
+.place-search input { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; color: var(--ink); font: inherit; font-size: 0.85rem !important; outline: none; padding: 4px 2px !important; }
+.place-search .ps-go { font: 700 0.75rem var(--mono); border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); padding: 4px 12px; cursor: pointer; }
+.ps-results { display: flex; flex-direction: column; }
+.ps-results button { text-align: left; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; padding: 8px 4px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.ps-results button:hover, .ps-results button:focus-visible { background: var(--raised); }
+.ps-results small { color: var(--faint); font-size: 0.72rem; }
+.ps-status { font-size: 0.72rem; color: var(--faint); padding-inline: 2px; }
+/* Post cards open their details; a photo sits at the top of the card */
+.post.openable { cursor: pointer; }
+.post.openable:hover { border-color: var(--line-strong); }
+.post .post-photo { margin: -16px -18px 4px; border-radius: 12px 12px 0 0; overflow: hidden; background: var(--raised); }
+.post .post-photo img { display: block; width: 100%; max-height: 260px; object-fit: cover; }
+
+/* Details sheet: slides in from the right on wide screens, full screen on phones */
+.sheet-overlay { position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.6); display: flex; justify-content: flex-end; }
+.sheet { width: min(560px, 100%); height: 100%; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); border-left: 1px solid var(--line); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.sheet-bar { position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.sheet-bar .when { font-size: 0.72rem; color: var(--faint); }
+.sheet-body { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
+.sheet-photo { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); }
+.sheet-photo img { display: block; width: 100%; max-height: 62vh; object-fit: contain; background: #000; }
+.sheet-photo.empty { border-style: dashed; }
+.photo-add { width: 100%; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: none; border: 0; color: var(--muted); font: 700 0.8rem var(--mono); cursor: pointer; }
+.photo-add:hover { color: var(--ink); }
+.photo-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.photo-status { font-size: 0.72rem; color: var(--faint); }
+.sheet h2 { margin: 0; font: 700 1.3rem var(--mono); color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
+.sheet .sheet-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.9rem; color: var(--text); line-height: 1.65; }
+.sheet .place-box { display: flex; flex-direction: column; gap: 8px; }
+.sheet .place-line { display: flex; gap: 8px; align-items: flex-start; font-size: 0.8rem; color: var(--ink); }
+.sheet .place-line small { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 2px; }
+.mini-map { height: 240px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; position: relative; }
+.mini-map .maplibregl-ctrl-attrib { background: rgba(0,0,0,.7); color: #737373; font: 10px var(--mono); }
+.mini-map .maplibregl-ctrl-attrib a { color: #A3A3A3; }
+.mini-map .maplibregl-ctrl-attrib-button { filter: invert(1); background-color: transparent; }
+.mini-map .maplibregl-ctrl-group { background: transparent; box-shadow: none; display: flex; flex-direction: column; gap: 6px; }
+.mini-map .maplibregl-ctrl-group button { width: 32px; height: 32px; border-radius: 999px; border: 1px solid #404040 !important; background: #0A0A0A; }
+.mini-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
+.place-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.place-links a, .place-links button { font: 700 0.72rem var(--mono); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); cursor: pointer; text-decoration: none; }
+.sheet-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px; }
+.post .where { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--mono); font-weight: 700; text-align: left; align-self: flex-start; }
+.post .where:hover { color: var(--ink); }
+.post.flash { border-color: var(--ink); }
+
+/* Map: black streets map with white roads and names, whatever the theme */
+.map-overlay { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.map-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #262626; }
+.map-bar h2 { margin: 0; font: 400 1.5rem var(--mark); color: #A3A3A3; }
+.map-bar .map-sub { font-size: 0.72rem; color: #737373; }
+.map-bar .icon-btn { color: #fff; border-color: #404040; }
+.map-bar .bar-btns { display: flex; gap: 8px; }
+.map-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+#mapCanvas { position: absolute; inset: 0; background: #000; }
+#mapCanvas .maplibregl-ctrl-attrib { background: rgba(0,0,0,.7); color: #737373; font: 10px var(--mono); }
+#mapCanvas .maplibregl-ctrl-attrib a { color: #A3A3A3; }
+#mapCanvas .maplibregl-ctrl-attrib-button { filter: invert(1); background-color: transparent; }
+#mapCanvas .maplibregl-ctrl-group { background: transparent; box-shadow: none; display: flex; flex-direction: column; gap: 6px; }
+#mapCanvas .maplibregl-ctrl-group button { width: 36px; height: 36px; border-radius: 999px; border: 1px solid #404040 !important; background: #0A0A0A; }
+#mapCanvas .maplibregl-ctrl-group button + button { border-top: 1px solid #404040; }
+#mapCanvas .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
+#mapCanvas .maplibregl-canvas { cursor: grab; }
+.map-card { position: absolute; z-index: 1000; left: 16px; bottom: 24px; right: 72px; max-width: 360px; background: #0A0A0A; border: 1px solid #404040; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.map-card h3 { margin: 0; font: 700 0.95rem var(--mono); color: #fff; }
+.map-card .addr { font-size: 0.72rem; color: #A3A3A3; }
+.map-card p { margin: 0; font-size: 0.8rem; color: #E5E5E5; white-space: pre-wrap; max-height: 6.5em; overflow: auto; }
+.map-card .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.map-card .open { font: 700 0.75rem var(--mono); background: #fff; color: #000; border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.map-card .x { background: none; border: 0; color: #A3A3A3; font: inherit; cursor: pointer; }
+.map-empty { position: absolute; z-index: 900; inset: 0; display: grid; place-items: center; text-align: center; color: #A3A3A3; font-size: 0.85rem; padding: 24px; pointer-events: none; }
+.map-overlay :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* 2027 calendar: always black like the map, grey grid, white pencil drawings */
+.cal-overlay { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); font-family: var(--mono); }
+.cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #262626; }
+.cal-bar h2 { margin: 0; font: 400 1.5rem var(--mark); color: #A3A3A3; }
+.cal-bar .icon-btn { color: #fff; border-color: #404040; }
+.cal-nav { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; }
+.cal-nav h3 { margin: 0; flex: 1 1 auto; text-align: center; font: 700 1.05rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.cal-nav .icon-btn { color: #fff; border-color: #404040; font: 700 1rem var(--mono); }
+.cal-chips { display: flex; gap: 6px; overflow-x: auto; padding: 6px 16px 10px; scrollbar-width: none; }
+.cal-chips::-webkit-scrollbar { display: none; }
+.cal-chip { flex: none; font: 700 0.7rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; border: 1px solid #404040; background: #0A0A0A; color: #A3A3A3; cursor: pointer; }
+.cal-chip[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; }
+.cal-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 16px 10px; }
+.cal-tool { font: 700 0.72rem var(--mono); padding: 6px 12px; border-radius: 999px; border: 1px solid #404040; background: transparent; color: #E5E5E5; cursor: pointer; }
+.cal-tool[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; }
+.cal-tool:disabled { opacity: 0.35; cursor: default; }
+.cal-tools .sep { width: 1px; height: 20px; background: #262626; margin-inline: 4px; }
+.cal-status { margin-left: auto; font-size: 0.68rem; color: #737373; }
+.cal-scroller { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 16px; touch-action: none; overscroll-behavior: contain; }
+.cal-page { margin-inline: auto; }
+.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); min-width: 100%; position: sticky; top: 0; z-index: 2; background: #000; border-bottom: 1px solid #262626; }
+.cal-week span { font-size: 0.66rem; letter-spacing: 0.1em; color: #737373; padding: 4px 6px; }
+.cal-bar, .cal-nav, .cal-chips, .cal-tools { flex: none; }
+.cal-board { position: relative; width: 100%; aspect-ratio: 7 / 8; }
+.cal-cells { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); border-top: 1px solid #262626; border-left: 1px solid #262626; }
+.cal-cell { border-right: 1px solid #262626; border-bottom: 1px solid #262626; padding: 6px 7px; min-width: 0; }
+.cal-cell.out { background: #050505; }
+.cal-day { font-size: calc(0.8rem * var(--z, 1)); font-weight: 700; color: #A3A3A3; }
+.cal-board canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.cal-board.erasing canvas { cursor: cell; }
+.cal-board.move canvas { cursor: grab; }
+.cal-board.move.grabbing canvas { cursor: grabbing; }
+.cal-zoomval { min-width: 4.2em; text-align: center; font-size: 0.72rem; color: #A3A3A3; font-variant-numeric: tabular-nums; }
+.cal-confirm { position: absolute; z-index: 5; left: 50%; top: 40%; transform: translate(-50%, -50%); background: #0A0A0A; border: 1px solid #404040; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; max-width: min(320px, 90vw); font-size: 0.85rem; }
+.cal-confirm .row { display: flex; justify-content: flex-end; gap: 8px; }
+.cal-confirm .yes { background: #F87171; color: #000; border-color: #F87171; }
+.cal-overlay :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (max-width: 640px) { .cal-cell { padding: 3px 4px; } .cal-day { font-size: calc(0.68rem * var(--z, 1)); } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Tagboard<span>.</span></h1>
+    <div class="head-right">
+      <span class="count" id="count"></span>
+      <span class="sync" id="syncState" hidden></span>
+      <button class="del" type="button" id="exportBtn">Export backup</button>
+      <button class="del" type="button" id="importBtn">Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <button class="del" type="button" id="signOutBtn" hidden>Sign out</button>
+      <button class="icon-btn" type="button" id="calBtn" hidden aria-label="Open 2027 calendar" title="2027 calendar"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></button>
+      <button class="icon-btn" type="button" id="mapBtn" aria-label="Open map" title="Map" hidden><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg></button>
+    </div>
+  </header>
+
+  <section class="gate" id="gate">
+    <p class="gate-kicker">Private · synced · saved for good</p>
+    <h2>Your notes, on every device.</h2>
+    <p id="gateMsg">Sign in with Google to open your notes. Only you can see them.</p>
+    <button class="btn" type="button" id="signInBtn" disabled>Sign in with Google</button>
+  </section>
+
+  <div class="app" id="app" hidden>
+  <form class="composer" id="composer" autocomplete="off">
+    <div class="title-row">
+      <input type="text" id="title" placeholder="Title" maxlength="120">
+      <button class="icon-btn" type="button" id="placeBtn" aria-label="Add a location" title="Add a location"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg></button>
+    </div>
+    <div id="placeSlot"></div>
+    <textarea id="body" placeholder="Get it out of your head…" maxlength="5000"></textarea>
+    <div class="tagfield" id="tagfield">
+      <span class="hash">#</span>
+      <span id="draftTags" class="tags"></span>
+      <input type="text" id="tagInput" placeholder="add tags" maxlength="30">
+    </div>
+    <div class="suggest" id="suggest"></div>
+    <div class="row">
+      <span class="hint">Ctrl/⌘ + Enter to post</span>
+      <button class="btn" id="postBtn" type="submit" disabled>Post note</button>
+    </div>
+  </form>
+
+  <div class="notice" id="notice"></div>
+
+  <nav class="rail" aria-label="Filter by tag"><div class="rail-inner" id="rail"></div></nav>
+
+  <section class="feed" id="feed" aria-live="polite">
+    <div class="empty"><strong>Loading your notes…</strong>Your posts will show up here.</div>
+  </section>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay" hidden>
+  <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-bar"><span class="when" id="sheetWhen"></span><button class="icon-btn" type="button" id="sheetClose" aria-label="Close details">&#10005;</button></div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </aside>
+</div>
+<input type="file" id="photoFile" accept="image/*" hidden>
+
+<div class="cal-overlay" id="calOverlay" hidden role="dialog" aria-modal="true" aria-label="2027 calendar">
+  <div class="cal-bar">
+    <h2>2027</h2>
+    <button class="icon-btn" type="button" id="calClose" aria-label="Close calendar">&#10005;</button>
+  </div>
+  <div class="cal-nav">
+    <button class="icon-btn" type="button" id="calPrev" aria-label="Previous month">&lsaquo;</button>
+    <h3 id="calMonth" aria-live="polite"></h3>
+    <button class="icon-btn" type="button" id="calNext" aria-label="Next month">&rsaquo;</button>
+  </div>
+  <div class="cal-chips" id="calChips" role="group" aria-label="Months"></div>
+  <div class="cal-tools" id="calTools">
+    <button class="cal-tool" type="button" data-tool="pencil" aria-pressed="true">Pencil</button>
+    <button class="cal-tool" type="button" id="calSize" title="Pencil thickness">Fine</button>
+    <button class="cal-tool" type="button" data-tool="eraser" aria-pressed="false">Eraser</button>
+    <button class="cal-tool" type="button" data-tool="move" aria-pressed="false" title="Scroll without drawing">Move</button>
+    <span class="sep"></span>
+    <button class="cal-tool" type="button" id="calUndo" disabled>Undo</button>
+    <button class="cal-tool" type="button" id="calClear" disabled>Clear month</button>
+    <span class="sep"></span>
+    <button class="cal-tool" type="button" id="calZoomOut" aria-label="Zoom out">&minus;</button>
+    <span class="cal-zoomval" id="calZoomVal" aria-live="polite">100%</span>
+    <button class="cal-tool" type="button" id="calZoomIn" aria-label="Zoom in">+</button>
+    <button class="cal-tool" type="button" id="calZoomFit">Fit</button>
+    <span class="cal-status" id="calStatus"></span>
+  </div>
+  <div class="cal-scroller" id="calScroller">
+    <div class="cal-page" id="calPage">
+      <div class="cal-week" aria-hidden="true"><span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span></div>
+      <div class="cal-board" id="calBoard">
+        <div class="cal-cells" id="calCells"></div>
+        <canvas id="calCanvas" aria-label="Drawing area for this month"></canvas>
+        <div class="cal-confirm" id="calConfirm" hidden role="alertdialog" aria-label="Clear this month">
+          <span>Erase every drawing on this month? This can't be undone.</span>
+          <div class="row"><button class="cal-tool" type="button" id="calClearNo">Keep</button><button class="cal-tool yes" type="button" id="calClearYes">Clear month</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="map-overlay" id="mapOverlay" hidden role="dialog" aria-modal="true" aria-label="Map of your places">
+  <div class="map-bar">
+    <div><h2>Map</h2><div class="map-sub" id="mapSub"></div></div>
+    <div class="bar-btns">
+      <button class="icon-btn" type="button" id="zoomFit" aria-label="Show all places" title="Show all places" style="font:700 .62rem var(--mono)">ALL</button>
+      <button class="icon-btn" type="button" id="mapClose" aria-label="Close map">&#10005;</button>
+    </div>
+  </div>
+  <div class="map-stage">
+    <div id="mapCanvas"></div>
+    <div class="map-empty" id="mapEmpty" hidden></div>
+    <div class="map-card" id="mapCard" hidden></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let notes = [];          // [{id, title, body, tags, createdAt, example}]
+  let draftTags = [];
+  let activeTags = [];
+  let pendingDelete = null;
+  let editingId = null;
+  let editDraft = null;   // {title, body, tags}
+  let saving = false;
+  let justAdded = null;
+  let db = null;
+  let canWrite = true;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("tagboard.filters") || "[]");
+    if (Array.isArray(saved)) activeTags = saved.filter((t) => typeof t === "string");
+    const old = localStorage.getItem("tagboard.filter");
+    if (old && !activeTags.length) activeTags = [old];
+    localStorage.removeItem("tagboard.filter");
+  } catch (e) {}
+
+  const norm = (s) => s.trim().toLowerCase().replace(/^#+/, "").replace(/\s+/g, "-").replace(/[^\p{L}\p{N}_-]/gu, "").slice(0, 30);
+  function colorClass(tag) { let h = 0; for (const ch of tag) h = (h * 31 + ch.codePointAt(0)) >>> 0; return "c" + (h % 6 + 1); }
+  function when(ts) {
+    const d = new Date(ts), now = Date.now(), s = (now - ts) / 1000;
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    if (s < 86400) return Math.floor(s / 3600) + "h ago";
+    if (s < 86400 * 6) return Math.floor(s / 86400) + "d ago";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+  }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function tagCounts() {
+    const m = new Map();
+    for (const n of notes) for (const t of n.tags || []) m.set(t, (m.get(t) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }
+
+  // A post matches when it carries EVERY selected tag.
+  const matches = (n) => activeTags.every((t) => (n.tags || []).includes(t));
+  const tagList = () => activeTags.map((t) => "#" + t).join(" + ");
+
+  function renderRail() {
+    const rail = $("rail"); rail.textContent = "";
+    const counts = tagCounts();
+    const known = new Set(counts.map(([t]) => t));
+    if (notes.length) activeTags = activeTags.filter((t) => known.has(t));
+    const visible = notes.filter(matches);
+    // How many of the currently shown posts also carry each tag
+    const within = new Map();
+    for (const n of visible) for (const t of n.tags || []) within.set(t, (within.get(t) || 0) + 1);
+    const mk = (label, tag, n, pressed, disabled) => {
+      const b = el("button", "filter"); b.type = "button";
+      b.append(label); b.append(el("b", null, n));
+      b.setAttribute("aria-pressed", String(pressed));
+      if (disabled) { b.disabled = true; b.title = "No posts have this tag together with your selection"; }
+      b.onclick = () => (tag ? toggleTag(tag) : clearTags());
+      rail.append(b);
+    };
+    mk(activeTags.length ? "Clear" : "All", null, notes.length, !activeTags.length, false);
+    const selected = counts.filter(([t]) => activeTags.includes(t));
+    const others = counts.filter(([t]) => !activeTags.includes(t));
+    for (const [t] of selected) mk("#" + t, t, within.get(t) || 0, true, false);
+    for (const [t, n] of others) {
+      const c = activeTags.length ? (within.get(t) || 0) : n;
+      mk("#" + t, t, c, false, activeTags.length > 0 && c === 0);
+    }
+  }
+
+  function saveFilter() {
+    try { activeTags.length ? localStorage.setItem("tagboard.filters", JSON.stringify(activeTags)) : localStorage.removeItem("tagboard.filters"); } catch (e) {}
+  }
+  function afterFilterChange() {
+    saveFilter(); render();
+    window.scrollTo({ top: Math.min(window.scrollY, $("rail").parentElement.offsetTop - 8) });
+  }
+  function toggleTag(tag) {
+    activeTags = activeTags.includes(tag) ? activeTags.filter((t) => t !== tag) : [...activeTags, tag];
+    afterFilterChange();
+  }
+  function clearTags() { activeTags = []; afterFilterChange(); }
+
+  const tileQuery = window.matchMedia("(min-width: 640px)");
+  try { tileQuery.addEventListener("change", () => { if (!editingId) renderFeed(); }); } catch (e) {}
+  function renderFeed() {
+    const feed = $("feed"); feed.textContent = "";
+    const list = notes.filter(matches);
+    $("count").textContent = activeTags.length
+      ? `${list.length} with ${tagList()}`
+      : `${notes.length} note${notes.length === 1 ? "" : "s"}`;
+    if (!list.length) {
+      feed.classList.remove("tiles");
+      const e = el("div", "empty");
+      e.append(el("strong", null, notes.length ? "No posts have " + (activeTags.length > 1 ? "all of " : "") + tagList() : "No notes yet"));
+      e.append(notes.length ? "Remove a tag from the filter or tap Clear." : "Write your first note above and give it a tag or two.");
+      feed.append(e); return;
+    }
+    const twoCols = tileQuery.matches;
+    feed.classList.toggle("tiles", twoCols);
+    const cols = twoCols ? [el("div", "col"), el("div", "col")] : [feed];
+    if (twoCols) feed.append(...cols);
+    // place each card in the currently shorter column (measured after layout)
+    const place = (card) => {
+      if (!twoCols) { feed.append(card); return; }
+      const target = cols[0].offsetHeight <= cols[1].offsetHeight ? cols[0] : cols[1];
+      target.append(card);
+    };
+    for (const n of list) {
+      if (n.id === editingId && editDraft) { place(renderEditor(n)); continue; }
+      const card = el("article", "post openable" + (n.id === justAdded ? " new" : ""));
+      if (n.thumb) { const ph = el("div", "post-photo"); const im = el("img"); im.src = n.thumb; im.alt = ""; im.loading = "lazy"; ph.append(im); card.append(ph); }
+      card.tabIndex = 0; card.setAttribute("aria-label", (n.title || "Note") + ", open details");
+      card.addEventListener("click", (e) => { if (e.target.closest("button, a, input, textarea, .confirm")) return; openDetail(n.id); });
+      card.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target === card) openDetail(n.id); });
+      const head = el("div", "post-head");
+      if (n.title) head.append(el("h2", null, n.title)); else head.append(el("span"));
+      const meta = el("span", "when", when(n.createdAt));
+      head.append(meta);
+      card.dataset.id = n.id;
+      card.append(head);
+      if (validPlace(n.place)) {
+        const w = el("button", "where"); w.type = "button"; w.title = "Show on map";
+        w.innerHTML = PIN_SVG; w.append(n.place.name || n.place.address || "Location");
+        w.onclick = () => openMap(n.id);
+        card.append(w);
+      }
+      if (n.body) card.append(el("p", null, n.body));
+      const foot = el("div", "post-foot");
+      const tags = el("div", "tags");
+      for (const t of n.tags || []) {
+        const b = el("button", "tag " + colorClass(t), "#" + t); b.type = "button";
+        const on = activeTags.includes(t);
+        b.title = on ? "Remove #" + t + " from the filter" : "Add #" + t + " to the filter";
+        b.setAttribute("aria-pressed", String(on));
+        b.onclick = () => toggleTag(t); tags.append(b);
+      }
+      if (n.example) tags.append(el("span", "example", "example"));
+      foot.append(tags);
+      if (canWrite) {
+        if (pendingDelete === n.id) {
+          const c = el("div", "confirm"); c.append("Delete this note?");
+          const no = el("button", null, "Keep"); no.type = "button"; no.onclick = () => { pendingDelete = null; renderFeed(); };
+          const yes = el("button", "yes", "Delete"); yes.type = "button"; yes.onclick = () => removeNote(n.id);
+          c.append(no, yes); foot.append(c);
+        } else {
+          const acts = el("div", "actions");
+          const ed = el("button", "del", "Edit"); ed.type = "button";
+          ed.onclick = () => startEdit(n);
+          const d = el("button", "del", "Delete"); d.type = "button";
+          d.onclick = () => { pendingDelete = n.id; renderFeed(); };
+          acts.append(ed, d); foot.append(acts);
+        }
+      }
+      card.append(foot);
+      place(card);
+    }
+    justAdded = null;
+  }
+
+  function startEdit(n) {
+    pendingDelete = null;
+    editingId = n.id;
+    editDraft = { title: n.title || "", body: n.body || "", tags: (n.tags || []).slice(), place: validPlace(n.place) ? { ...n.place } : null };
+    renderFeed();
+    const t = document.getElementById("e-body"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+  }
+  function cancelEdit() { editingId = null; editDraft = null; renderFeed(); }
+
+  function renderEditor(n) {
+    const card = el("article", "post editing");
+    const form = el("form", "edit-form"); form.autocomplete = "off";
+    const ti = el("input", "e-title"); ti.type = "text"; ti.id = "e-title"; ti.placeholder = "Title"; ti.maxLength = 120; ti.value = editDraft.title;
+    ti.setAttribute("aria-label", "Title");
+    ti.oninput = () => { editDraft.title = ti.value; sync(); };
+    const bo = el("textarea"); bo.id = "e-body"; bo.placeholder = "Note"; bo.maxLength = 5000; bo.value = editDraft.body;
+    bo.setAttribute("aria-label", "Note");
+    bo.oninput = () => { editDraft.body = bo.value; sync(); };
+    const tagsBox = el("div", "e-tags");
+    const chips = el("span", "tags");
+    const tin = el("input"); tin.type = "text"; tin.id = "e-tag-input"; tin.placeholder = "add tags"; tin.maxLength = 30;
+    tin.setAttribute("aria-label", "Add tag");
+    const drawChips = () => {
+      chips.textContent = "";
+      for (const t of editDraft.tags) {
+        const b = el("button", "tag " + colorClass(t)); b.type = "button";
+        b.append("#" + t, el("span", "x", "✕")); b.title = "Remove #" + t;
+        b.onclick = () => { editDraft.tags = editDraft.tags.filter((x) => x !== t); drawChips(); };
+        chips.append(b);
+      }
+    };
+    const addEditTag = (raw) => { const t = norm(raw); if (t && !editDraft.tags.includes(t) && editDraft.tags.length < 8) editDraft.tags.push(t); };
+    tin.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === "," || e.key === " ") {
+        if (tin.value.trim()) { e.preventDefault(); addEditTag(tin.value); tin.value = ""; drawChips(); }
+        else if (e.key === "Enter") e.preventDefault();
+      } else if (e.key === "Backspace" && !tin.value && editDraft.tags.length) { editDraft.tags.pop(); drawChips(); }
+      else if (e.key === "Escape") cancelEdit();
+    };
+    drawChips();
+    const hash = el("span", "hash", "#"); hash.style.fontFamily = "var(--mono)"; hash.style.color = "var(--muted)";
+    tagsBox.append(hash, chips, tin);
+    tagsBox.onclick = (e) => { if (e.target === tagsBox) tin.focus(); };
+
+    const btns = el("div", "edit-buttons");
+    const cancel = el("button", "ghost", "Cancel"); cancel.type = "button"; cancel.onclick = cancelEdit;
+    const save = el("button", "btn", saving ? "Saving…" : "Save changes"); save.type = "submit";
+    const sync = () => { save.disabled = saving || !(editDraft.title.trim() || editDraft.body.trim()); };
+    sync();
+    btns.append(cancel, save);
+
+    [ti, bo].forEach((f) => f.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") cancelEdit();
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(n.id, tin.value); }
+    }));
+    form.onsubmit = (e) => { e.preventDefault(); saveEdit(n.id, tin.value); };
+    const tRow = el("div", "title-row"); tRow.append(ti);
+    const eSlot = el("div");
+    const pb = el("button", "icon-btn"); pb.type = "button"; pb.innerHTML = PIN_SVG; pb.setAttribute("aria-label", "Location"); pb.title = "Location";
+    const picker = makePlacePicker(eSlot, () => editDraft && editDraft.place, (pl) => { if (editDraft) editDraft.place = pl; }, pb);
+    pb.onclick = () => picker.toggle();
+    tRow.append(pb); picker.draw();
+    form.append(tRow, eSlot, bo, tagsBox, btns);
+    card.append(form);
+    return card;
+  }
+
+  async function saveEdit(id, pendingTag) {
+    if (!editDraft || saving) return;
+    if (pendingTag && pendingTag.trim()) { const t = norm(pendingTag); if (t && !editDraft.tags.includes(t)) editDraft.tags.push(t); }
+    const title = editDraft.title.trim(), body = editDraft.body.trim();
+    if (!title && !body) return;
+    const changes = { title, body, tags: editDraft.tags.slice(), place: editDraft.place || null, editedAt: Date.now(), example: false };
+    saving = true; renderFeed();
+    try {
+      if (db && !id.startsWith("local-")) await db.collection("notes").doc(id).update(changes);
+      else { const n = notes.find((x) => x.id === id); if (n) Object.assign(n, changes); }
+      saving = false; editingId = null; editDraft = null; notice("");
+      render();
+    } catch (e) {
+      saving = false;
+      notice("Your changes didn't save. Check your connection and try again.");
+      renderFeed();
+    }
+  }
+
+  function renderDraft() {
+    const box = $("draftTags"); box.textContent = "";
+    for (const t of draftTags) {
+      const b = el("button", "tag " + colorClass(t)); b.type = "button";
+      b.append("#" + t, el("span", "x", "✕")); b.title = "Remove #" + t;
+      b.onclick = () => { draftTags = draftTags.filter((x) => x !== t); renderDraft(); };
+      box.append(b);
+    }
+    const q = norm($("tagInput").value);
+    const sug = $("suggest"); sug.textContent = "";
+    const pool = tagCounts().map(([t]) => t).filter((t) => !draftTags.includes(t) && (!q || t.startsWith(q))).slice(0, 6);
+    if (document.activeElement === $("tagInput") || q) {
+      for (const t of pool) {
+        const b = el("button", "tag", "+ #" + t); b.type = "button";
+        b.onmousedown = (e) => e.preventDefault();
+        b.onclick = () => { addTag(t); $("tagInput").value = ""; renderDraft(); $("tagInput").focus(); };
+        sug.append(b);
+      }
+    }
+    updatePostBtn();
+  }
+
+  function addTag(raw) { const t = norm(raw); if (t && !draftTags.includes(t) && draftTags.length < 8) draftTags.push(t); }
+  function updatePostBtn() { $("postBtn").disabled = !canWrite || !($("body").value.trim() || $("title").value.trim()); }
+
+  let render = function () { renderRail(); renderFeed(); if (gl && !mapEl.overlay.hidden) drawPins(); if (detailId && !photoBusy) refreshDetail(); };
+  function refreshDetail() { const n = notes.find((x) => x.id === detailId); if (!n) { closeDetail(); return; } const sig = JSON.stringify([n.title, n.body, n.tags, n.place, n.thumb ? n.photoAt : 0]); if (sig !== refreshDetail.sig) { refreshDetail.sig = sig; renderDetail(false); } }
+
+  // ---- data
+  function notice(msg) { $("notice").textContent = msg || ""; }
+
+  async function submit() {
+    const title = $("title").value.trim(), body = $("body").value.trim();
+    if (!title && !body) return;
+    const pendingRaw = $("tagInput").value; if (pendingRaw.trim()) addTag(pendingRaw);
+    const note = { title, body, tags: draftTags.slice(), createdAt: Date.now() };
+    if (draftPlace) note.place = draftPlace;
+    $("postBtn").disabled = true;
+    try {
+      if (db) {
+        const ref = db.collection("notes").doc();
+        justAdded = ref.id;
+        await ref.set(note);
+      } else {
+        const id = "local-" + Math.random().toString(36).slice(2);
+        justAdded = id; notes.unshift({ id, ...note }); render();
+      }
+      $("title").value = ""; $("body").value = ""; $("tagInput").value = ""; draftTags = []; draftPlace = null; composerPicker.close();
+      if (activeTags.length && !activeTags.every((t) => note.tags.includes(t))) { activeTags = []; saveFilter(); render(); }
+      renderDraft();
+    } catch (e) {
+      notice(e && e.code === "quota_exceeded" ? "Your board is full. Delete some old notes to make room." : "That note didn't save. Check your connection and try again.");
+      if (e && e.code === "invalid_argument") { canWrite = false; notice("You can read these notes but can't add new ones."); render(); }
+      updatePostBtn();
+    }
+  }
+
+  async function removeNote(id) {
+    pendingDelete = null;
+    try {
+      if (db && !id.startsWith("local-")) { await db.collection("notes").doc(id).delete(); db.collection("photos").doc(id).delete().catch(() => {}); }
+      else { notes = notes.filter((n) => n.id !== id); render(); }
+    } catch (e) { notice("That note couldn't be deleted. Try again in a moment."); renderFeed(); }
+  }
+
+  // ---- places: address search (OpenStreetMap) and the place picker
+  const PIN_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
+  let draftPlace = null;
+  function validPlace(p) { return !!p && typeof p === "object" && p.lat !== null && p.lng !== null && isFinite(p.lat) && isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180; }
+  function cleanPlace(p) { return { name: String(p.name || "").slice(0, 120), address: String(p.address || "").slice(0, 240), lat: Number(p.lat), lng: Number(p.lng) }; }
+
+  let lastSearch = 0;
+  async function geocode(q) {
+    const wait = 1100 - (Date.now() - lastSearch); // OpenStreetMap asks for at most one search per second
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastSearch = Date.now();
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=" + encodeURIComponent(q);
+    const r = await fetch(url, { headers: { "Accept-Language": navigator.language || "en" } });
+    if (!r.ok) throw new Error("search " + r.status);
+    const list = await r.json();
+    return list.map((x) => {
+      const parts = String(x.display_name || "").split(", ");
+      const name = x.name || parts[0] || q;
+      const address = (parts[0] === name ? parts.slice(1) : parts).join(", ");
+      return { name: name.slice(0, 120), address: address.slice(0, 240), lat: Math.round(Number(x.lat) * 1e6) / 1e6, lng: Math.round(Number(x.lon) * 1e6) / 1e6 };
+    }).filter(validPlace);
+  }
+
+  function makePlacePicker(slot, get, set, btn) {
+    let open = false, busy = false, results = null, status = "", lastQ = "";
+    const api = {
+      draw() {
+        slot.textContent = "";
+        const cur = get();
+        if (btn) btn.setAttribute("aria-pressed", String(open || !!cur));
+        if (cur && !open) {
+          const chip = el("div", "place-chip");
+          chip.innerHTML = PIN_SVG; chip.append(el("span", null, cur.name + (cur.address ? " · " + cur.address : "")));
+          const x = el("button", null, "✕"); x.type = "button"; x.title = "Remove location"; x.setAttribute("aria-label", "Remove location");
+          x.onclick = () => { set(null); api.draw(); };
+          chip.append(x); slot.append(chip); return;
+        }
+        if (!open) return;
+        const box = el("div", "place-search");
+        const row = el("div", "ps-row");
+        const inp = el("input"); inp.type = "text"; inp.placeholder = "Search an address or place"; inp.value = lastQ; inp.maxLength = 160;
+        inp.setAttribute("aria-label", "Search an address or place");
+        const go = el("button", "ps-go", busy ? "Searching…" : "Search"); go.type = "button"; go.disabled = busy;
+        const run = async () => {
+          const q = inp.value.trim(); if (!q || busy) return;
+          lastQ = q; busy = true; status = ""; results = null; api.draw();
+          try { results = await geocode(q); status = results.length ? "" : "No matches. Try adding the city, or the street and number."; }
+          catch (e) { status = navigator.onLine ? "Search didn't work. Try again in a moment." : "You're offline. Connect to search addresses."; }
+          busy = false; api.draw();
+        };
+        inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } else if (e.key === "Escape") { e.preventDefault(); api.close(); } };
+        go.onclick = run;
+        row.append(inp, go); box.append(row);
+        if (busy) box.append(el("div", "ps-status", "Looking it up…"));
+        else if (status) box.append(el("div", "ps-status", status));
+        if (results && results.length) {
+          const list = el("div", "ps-results");
+          for (const r of results) {
+            const b = el("button"); b.type = "button";
+            b.append(el("span", null, r.name)); if (r.address) b.append(el("small", null, r.address));
+            b.onclick = () => { set(r); open = false; results = null; lastQ = ""; api.draw(); };
+            list.append(b);
+          }
+          box.append(list);
+        }
+        slot.append(box);
+        if (!busy) setTimeout(() => inp.focus(), 0);
+      },
+      toggle() { open = !open; if (!open) { results = null; status = ""; } api.draw(); },
+      close() { open = false; results = null; status = ""; lastQ = ""; api.draw(); },
+    };
+    return api;
+  }
+  const composerPicker = makePlacePicker($("placeSlot"), () => draftPlace, (pl) => { draftPlace = pl; }, $("placeBtn"));
+  $("placeBtn").onclick = () => composerPicker.toggle();
+
+  // ---- map: simplified street map (OpenFreeMap / OpenStreetMap data), black with grey roads, names in English
+  const mapEl = { overlay: $("mapOverlay"), card: $("mapCard"), empty: $("mapEmpty"), sub: $("mapSub") };
+  let gl = null, glReady = null, activePin = null, mapNotes = [];
+  const EN = ["coalesce", ["get", "name:en"], ["get", "name_en"], ["get", "name:latin"], ["get", "name"]];
+  function simplifyStyle(style) {
+    // keep water, roads, rail, borders and place/road names; drop buildings, land use, airports, footpaths and icons
+    const drop = /^(building|aeroway|road_oneway|road_area_pier|road_pier|landcover|landuse|railway_minor|railway_transit|railway_dashline|highway_path|highway_major_subtle|highway_motorway_subtle|place_other|boundary_state)/;
+    style.layers = style.layers.filter((l) => !drop.test(l.id)).map((l) => {
+      l = JSON.parse(JSON.stringify(l)); l.paint = l.paint || {}; l.layout = l.layout || {};
+      const line = l.type === "line";
+      if (l.type === "background") l.paint["background-color"] = "#000";
+      else if (l.id === "water") { l.paint["fill-color"] = "#121212"; delete l.paint["fill-outline-color"]; }
+      else if (l.id === "waterway") l.paint["line-color"] = "#1a1a1a";
+      else if (line && /casing/.test(l.id)) l.paint["line-color"] = "#000";
+      else if (line && /motorway/.test(l.id)) { l.paint["line-color"] = "#8f8f8f"; l.paint["line-opacity"] = 0.85; }
+      else if (line && /major/.test(l.id)) { l.paint["line-color"] = "#7a7a7a"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 9, 0.45, 14, 0.85]; }
+      else if (line && /minor/.test(l.id)) { l.paint["line-color"] = "#5e5e5e"; l.paint["line-opacity"] = ["interpolate", ["linear"], ["zoom"], 12, 0.15, 15, 0.75]; }
+      else if (line && /railway/.test(l.id)) { l.paint["line-color"] = "#5e5e5e"; l.paint["line-opacity"] = 0.35; }
+      else if (line && /boundary/.test(l.id)) { l.paint["line-color"] = "#fff"; l.paint["line-opacity"] = 0.6; delete l.paint["line-dasharray"]; }
+      else if (l.type === "symbol") {
+        if (l.layout["text-field"]) l.layout["text-field"] = EN;
+        delete l.layout["icon-image"];
+        l.paint["text-color"] = /^place_(country|city)/.test(l.id) ? "#fff" : /water_name/.test(l.id) ? "#7a7a7a" : "#d4d4d4";
+        l.paint["text-halo-color"] = "#000"; l.paint["text-halo-width"] = 1.4; l.paint["text-halo-blur"] = 0;
+      }
+      return l;
+    });
+    return style;
+  }
+  function placesGeoJSON() {
+    return { type: "FeatureCollection", features: mapNotes.map((n) => ({
+      type: "Feature", geometry: { type: "Point", coordinates: [n.place.lng, n.place.lat] },
+      properties: { id: n.id, label: n.place.name || n.title || "Place" },
+    })) };
+  }
+  function buildMap() {
+    if (gl) return glReady;
+    if (!window.maplibregl) return null;
+    glReady = (async () => {
+      const res = await fetch("https://tiles.openfreemap.org/styles/dark");
+      if (!res.ok) throw new Error("style " + res.status);
+      const style = simplifyStyle(await res.json());
+      gl = new maplibregl.Map({ container: "mapCanvas", style, center: [10, 30], zoom: 1.5, attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false });
+      gl.touchZoomRotate.disableRotation();
+      gl.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+      await new Promise((r) => gl.on("load", r));
+      const font = ["Noto Sans Bold"];
+      gl.addSource("notes", { type: "geojson", data: placesGeoJSON(), cluster: true, clusterRadius: 46, clusterMaxZoom: 15 });
+      gl.addLayer({ id: "clusters", type: "circle", source: "notes", filter: ["has", "point_count"],
+        paint: { "circle-color": "#fff", "circle-radius": ["step", ["get", "point_count"], 15, 10, 18], "circle-stroke-color": "#000", "circle-stroke-width": 2 } });
+      gl.addLayer({ id: "cluster-count", type: "symbol", source: "notes", filter: ["has", "point_count"],
+        layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": font, "text-size": 12, "text-allow-overlap": true },
+        paint: { "text-color": "#000" } });
+      gl.addLayer({ id: "pins", type: "circle", source: "notes", filter: ["!", ["has", "point_count"]],
+        paint: { "circle-color": ["case", ["==", ["get", "id"], ""], "#000", "#fff"], "circle-radius": 6, "circle-stroke-color": ["case", ["==", ["get", "id"], ""], "#fff", "#000"], "circle-stroke-width": 2 } });
+      gl.addLayer({ id: "pin-labels", type: "symbol", source: "notes", filter: ["!", ["has", "point_count"]],
+        layout: { "text-field": ["get", "label"], "text-font": font, "text-size": 12, "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true },
+        paint: { "text-color": "#fff", "text-halo-color": "#000", "text-halo-width": 1.6 } });
+      gl.on("click", "clusters", async (e) => {
+        const f = e.features[0]; const src = gl.getSource("notes");
+        const z = await src.getClusterExpansionZoom(f.properties.cluster_id);
+        gl.easeTo({ center: f.geometry.coordinates, zoom: Math.min(z + 0.5, 17) });
+      });
+      gl.on("click", "pins", (e) => { e.originalEvent.stopPropagation(); showCard(e.features[0].properties.id); });
+      gl.on("click", (e) => { if (!gl.queryRenderedFeatures(e.point, { layers: ["pins", "clusters"] }).length && activePin) hideCard(); });
+      for (const id of ["clusters", "pins"]) {
+        gl.on("mouseenter", id, () => { gl.getCanvas().style.cursor = "pointer"; });
+        gl.on("mouseleave", id, () => { gl.getCanvas().style.cursor = ""; });
+      }
+      return gl;
+    })();
+    glReady.catch(() => { gl = null; glReady = null; });
+    return glReady;
+  }
+  function markActive() {
+    if (!gl || !gl.getLayer("pins")) return;
+    const id = activePin || "";
+    gl.setPaintProperty("pins", "circle-color", ["case", ["==", ["get", "id"], id], "#000", "#fff"]);
+    gl.setPaintProperty("pins", "circle-stroke-color", ["case", ["==", ["get", "id"], id], "#fff", "#000"]);
+  }
+  function drawPins() {
+    mapNotes = notes.filter(matches).filter((n) => validPlace(n.place));
+    if (gl && gl.getSource("notes")) gl.getSource("notes").setData(placesGeoJSON());
+    markActive();
+    const without = notes.filter(matches).length - mapNotes.length;
+    mapEl.sub.textContent = `${mapNotes.length} place${mapNotes.length === 1 ? "" : "s"}` + (activeTags.length ? ` with ${tagList()}` : "") + (without > 0 ? ` · ${without} note${without === 1 ? "" : "s"} without a location` : "");
+    mapEl.empty.hidden = mapNotes.length > 0;
+    mapEl.empty.textContent = "No places yet. Tap the pin next to a note's title to add a location.";
+  }
+  function fitAll(animate) {
+    if (!mapNotes.length) { gl.jumpTo({ center: [10, 30], zoom: 1.5 }); return; }
+    const b = new maplibregl.LngLatBounds();
+    mapNotes.forEach((n) => b.extend([n.place.lng, n.place.lat]));
+    gl.fitBounds(b, { padding: 70, maxZoom: 15, animate: !!animate, duration: animate ? 700 : 0 });
+  }
+  function hideCard() { activePin = null; mapEl.card.hidden = true; markActive(); }
+  function showCard(id) {
+    const n = notes.find((x) => x.id === id);
+    if (!n || !validPlace(n.place)) return;
+    activePin = id;
+    const c = mapEl.card; c.textContent = "";
+    c.append(el("h3", null, n.title || n.place.name));
+    c.append(el("div", "addr", [n.place.name !== n.title ? n.place.name : "", n.place.address].filter(Boolean).join(" · ")));
+    if (n.body) c.append(el("p", null, n.body));
+    const row = el("div", "row");
+    const open = el("button", "open", "Open post"); open.type = "button";
+    open.onclick = () => { closeMap(); revealPost(id); };
+    const x = el("button", "x", "Close"); x.type = "button"; x.onclick = hideCard;
+    row.append(open, x); c.append(row); c.hidden = false;
+    markActive();
+  }
+  function revealPost(id) {
+    if (activeTags.length && !notes.find((n) => n.id === id && matches(n))) { activeTags = []; saveFilter(); render(); }
+    const card = document.querySelector(`.post[data-id="${CSS.escape(id)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    card.classList.add("flash"); setTimeout(() => card.classList.remove("flash"), 1600);
+  }
+  let lastFocus = null;
+  async function openMap(focusId) {
+    lastFocus = document.activeElement;
+    mapEl.overlay.hidden = false; document.body.style.overflow = "hidden";
+    activePin = null; mapEl.card.hidden = true;
+    $("mapClose").focus();
+    const ready = buildMap();
+    if (!ready) { closeMap(); notice("The map couldn't load. Check your connection and reload the page."); return; }
+    try { await ready; } catch (e) { closeMap(); notice("The map couldn't load. Check your connection and reload the page."); return; }
+    gl.resize();
+    drawPins();
+    const n = focusId && mapNotes.find((x) => x.id === focusId);
+    if (n) { gl.jumpTo({ center: [n.place.lng, n.place.lat], zoom: 15.5 }); showCard(focusId); }
+    else fitAll(false);
+  }
+  function closeMap() {
+    mapEl.overlay.hidden = true; document.body.style.overflow = "";
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  $("mapBtn").onclick = () => openMap();
+  $("mapClose").onclick = closeMap;
+  $("zoomFit").onclick = () => { hideCard(); fitAll(true); };
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !mapEl.overlay.hidden) closeMap(); });
+
+  // ---- 2027 calendar you can draw on: one board per month, rough white pencil, saved per stroke
+  const CAL_YEAR = 2027;
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const cal = {
+    el: { overlay: $("calOverlay"), board: $("calBoard"), canvas: $("calCanvas"), cells: $("calCells"), month: $("calMonth"), chips: $("calChips"), scroller: $("calScroller"), page: $("calPage"), status: $("calStatus"), confirm: $("calConfirm") },
+    month: 0, tool: "pencil", size: "fine", zoom: 1,
+    strokes: [],      // saved strokes for the month, oldest first: {id, t, w, e, p:[x,y,pr,...]}
+    pending: new Map(), // strokes drawn here that the store hasn't echoed yet
+    mine: [],         // ids drawn in this visit, for Undo
+    unsub: null, live: null, ctx: null, dpr: 1, lastFocus: null,
+  };
+  try { const m = Number(localStorage.getItem("tagboard.calMonth")); if (m >= 0 && m < 12) cal.month = m; } catch (e) {}
+
+  // small seeded random generator, so a stroke redraws with exactly the same grain every time
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hashId(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  // Pencil: stamps of tiny, semi-transparent white grains scattered along the path, thicker with more pressure
+  function pencilSegment(ctx, s, rand, x0, y0, p0, x1, y1, p1, W) {
+    const base = (s.w || 2.2) * W / 1000;
+    const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(len / Math.max(0.7, base * 0.35)));
+    for (let i = 0; i < steps; i++) {
+      const f = i / steps, pr = p0 + (p1 - p0) * f;
+      const r = base * (0.55 + pr * 0.9);
+      const cx = x0 + dx * f, cy = y0 + dy * f;
+      const grains = 2 + Math.round(r * 0.9);
+      for (let g = 0; g < grains; g++) {
+        const ang = rand() * Math.PI * 2, rad = r * Math.sqrt(rand());
+        const sz = (0.5 + rand() * 1.1) * cal.dpr;
+        ctx.globalAlpha = (0.12 + rand() * 0.38) * (0.6 + pr * 0.6);
+        ctx.fillRect(cx + Math.cos(ang) * rad - sz / 2, cy + Math.sin(ang) * rad - sz / 2, sz, sz);
+      }
+    }
+  }
+  function eraserSegment(ctx, s, x0, y0, x1, y1, W) {
+    ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = 1;
+    ctx.lineWidth = (s.w || 2.2) * W / 1000 * 7; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.globalCompositeOperation = "source-over";
+  }
+  function drawStroke(ctx, s, from) {
+    const W = ctx.canvas.width, H = ctx.canvas.height, p = s.p;
+    if (!s._rand || !from) s._rand = rng(hashId(s.id));
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = "#fff";
+    const start = Math.max(3, (from || 0) * 3);
+    if (!from) { // every stroke starts with a dot (so a single tap leaves a mark)
+      if (s.e) eraserSegment(ctx, s, p[0] * W, p[1] * H, p[0] * W + 0.1, p[1] * H, W);
+      else pencilSegment(ctx, s, s._rand, p[0] * W, p[1] * H, p[2], p[0] * W + 0.5, p[1] * H + 0.5, p[2], W);
+    }
+    for (let i = start; i < p.length; i += 3) {
+      const x0 = p[i - 3] * W, y0 = p[i - 2] * H, x1 = p[i] * W, y1 = p[i + 1] * H;
+      if (s.e) eraserSegment(ctx, s, x0, y0, x1, y1, W);
+      else pencilSegment(ctx, s, s._rand, x0, y0, p[i - 1], x1, y1, p[i + 2], W);
+    }
+    ctx.globalAlpha = 1;
+  }
+  function redraw() {
+    const ctx = cal.ctx; if (!ctx) return;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const ids = new Set(cal.strokes.map((s) => s.id));
+    const all = cal.strokes.concat([...cal.pending.values()].filter((s) => !ids.has(s.id)));
+    all.sort((a, b) => a.t - b.t);
+    for (const s of all) drawStroke(ctx, s, 0);
+    if (cal.live) drawStroke(ctx, cal.live, 0);
+  }
+  function sizeCanvas() {
+    const c = cal.el.canvas, r = cal.el.board.getBoundingClientRect();
+    const want = Math.min(window.devicePixelRatio || 1, 2.5);
+    cal.dpr = Math.min(want, Math.sqrt(16e6 / Math.max(1, r.width * r.height)));
+    const w = Math.max(1, Math.round(r.width * cal.dpr)), h = Math.max(1, Math.round(r.height * cal.dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    cal.ctx = c.getContext("2d");
+    redraw();
+  }
+
+  // Month grid: Sunday-first, always six rows so every month board has the same shape (drawings keep their place)
+  function renderMonth() {
+    const m = cal.month, first = new Date(CAL_YEAR, m, 1), days = new Date(CAL_YEAR, m + 1, 0).getDate(), lead = first.getDay();
+    cal.el.month.textContent = MONTHS[m] + " " + CAL_YEAR;
+    const cells = cal.el.cells; cells.textContent = "";
+    for (let i = 0; i < 42; i++) {
+      const d = i - lead + 1, cell = el("div", "cal-cell" + (d < 1 || d > days ? " out" : ""));
+      if (d >= 1 && d <= days) {
+        const dow = (lead + d - 1) % 7;
+        cell.append(el("span", "cal-day", String(d)));
+        cell.setAttribute("aria-label", `${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dow]}, ${MONTHS[m]} ${d}`);
+      }
+      cells.append(cell);
+    }
+    [...cal.el.chips.children].forEach((b, i) => b.setAttribute("aria-pressed", String(i === m)));
+    const chip = cal.el.chips.children[m]; if (chip) chip.scrollIntoView({ block: "nearest", inline: "center" });
+    try { localStorage.setItem("tagboard.calMonth", String(m)); } catch (e) {}
+    subscribeMonth();
+  }
+  function monthPath() { return "doodles/" + CAL_YEAR + "-" + String(cal.month + 1).padStart(2, "0") + "/strokes"; }
+  function subscribeMonth() {
+    if (cal.unsub) { cal.unsub(); cal.unsub = null; }
+    cal.strokes = []; cal.pending.clear(); cal.mine = []; updateCalButtons(); redraw();
+    if (!db) { cal.el.status.textContent = "Drawings here won't be saved in this view."; return; }
+    cal.el.status.textContent = "Loading…";
+    try {
+      cal.unsub = db.collection(monthPath()).orderBy("t", "asc").onSnapshot((snap) => {
+        cal.strokes = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => Array.isArray(s.p));
+        for (const s of cal.strokes) cal.pending.delete(s.id);
+        cal.el.status.textContent = snap.metadata.hasPendingWrites ? "Saving…" : "Saved";
+        redraw(); updateCalButtons();
+      }, () => { cal.el.status.textContent = "Couldn't load this month's drawings. Reopen the calendar to try again."; });
+    } catch (e) { cal.el.status.textContent = "Couldn't load this month's drawings."; }
+  }
+  async function saveStroke(s) {
+    if (!db) return;
+    const { id, _rand, ...data } = s;
+    cal.el.status.textContent = "Saving…";
+    try { await db.collection(monthPath()).doc(id).set(data); cal.el.status.textContent = "Saved"; }
+    catch (e) {
+      cal.pending.delete(id); cal.mine = cal.mine.filter((x) => x !== id); redraw(); updateCalButtons();
+      cal.el.status.textContent = e && e.code === "quota_exceeded" ? "Storage is full. Clear an old month to make room." : "That stroke didn't save. Check your connection.";
+    }
+  }
+
+  // Drawing input
+  function pointFrom(e) {
+    const r = cal.el.board.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    const pr = e.pointerType === "pen" && e.pressure > 0 ? e.pressure : 0.5;
+    return [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4, Math.round(pr * 100) / 100];
+  }
+  const canDraw = () => canWrite && cal.tool !== "move";
+  cal.el.canvas.addEventListener("pointerdown", (e) => {
+    if (!canDraw() || cal.gesture || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.preventDefault(); cal.el.canvas.setPointerCapture(e.pointerId);
+    const id = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    cal.live = { id, t: Date.now(), w: (cal.tool === "eraser" ? 4 : cal.size === "bold" ? 5 : 2.6) / cal.zoom, e: cal.tool === "eraser", p: pointFrom(e) };
+    cal.live._rand = rng(hashId(id));
+    drawStroke(cal.ctx, cal.live, 0);
+  });
+  cal.el.canvas.addEventListener("pointermove", (e) => {
+    const s = cal.live; if (!s) return;
+    e.preventDefault();
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    const W = cal.ctx.canvas.width;
+    for (const ev of evs.length ? evs : [e]) {
+      const pt = pointFrom(ev), n = s.p.length;
+      if (Math.hypot((pt[0] - s.p[n - 3]) * W, (pt[1] - s.p[n - 2]) * cal.ctx.canvas.height) < 1.5 * cal.dpr) continue;
+      if (n >= 12000) break;
+      s.p.push(...pt);
+      drawStroke(cal.ctx, s, s.p.length / 3 - 1);
+    }
+  });
+  const endStroke = () => {
+    const s = cal.live; if (!s) return;
+    cal.live = null;
+    cal.pending.set(s.id, s); cal.mine.push(s.id); updateCalButtons();
+    saveStroke(s);
+  };
+  cal.el.canvas.addEventListener("pointerup", endStroke);
+  cal.el.canvas.addEventListener("pointercancel", endStroke);
+
+  // Tools
+  function setTool(t) {
+    cal.tool = t;
+    for (const b of document.querySelectorAll("[data-tool]")) b.setAttribute("aria-pressed", String(b.dataset.tool === t));
+    cal.el.board.classList.toggle("move", t === "move");
+    cal.el.board.classList.toggle("erasing", t === "eraser");
+  }
+  function updateCalButtons() {
+    $("calUndo").disabled = !canWrite || !cal.mine.length;
+    $("calClear").disabled = !canWrite || !(cal.strokes.length || cal.pending.size);
+  }
+  document.querySelectorAll("[data-tool]").forEach((b) => b.addEventListener("click", () => setTool(b.dataset.tool)));
+  $("calSize").onclick = () => { cal.size = cal.size === "fine" ? "bold" : "fine"; $("calSize").textContent = cal.size === "fine" ? "Fine" : "Bold"; if (cal.tool !== "pencil") setTool("pencil"); };
+  $("calUndo").onclick = async () => {
+    const id = cal.mine.pop(); if (!id) return;
+    cal.pending.delete(id); cal.strokes = cal.strokes.filter((s) => s.id !== id); redraw(); updateCalButtons();
+    if (db) { try { await db.collection(monthPath()).doc(id).delete(); } catch (e) { cal.el.status.textContent = "Undo didn't save. Check your connection."; } }
+  };
+  $("calClear").onclick = () => { cal.el.confirm.hidden = false; $("calClearNo").focus(); };
+  $("calClearNo").onclick = () => { cal.el.confirm.hidden = true; };
+  $("calClearYes").onclick = async () => {
+    cal.el.confirm.hidden = true;
+    const ids = cal.strokes.map((s) => s.id).concat([...cal.pending.keys()]);
+    cal.strokes = []; cal.pending.clear(); cal.mine = []; redraw(); updateCalButtons();
+    if (db) { cal.el.status.textContent = "Clearing…"; for (const id of ids) { try { await db.collection(monthPath()).doc(id).delete(); } catch (e) {} } cal.el.status.textContent = "Cleared"; }
+  };
+  // ---- zoom: pinch, Ctrl/⌘ + scroll, − / + buttons, double-tap a day (Move), Fit
+  const ZMIN = 1, ZMAX = 6;
+  let sizeQueued = false;
+  function queueSize() { if (sizeQueued) return; sizeQueued = true; requestAnimationFrame(() => { sizeQueued = false; sizeCanvas(); }); }
+  function fitWidth() { const sc = cal.el.scroller; return Math.max(200, Math.min(sc.clientWidth - 32, 900)); }
+  function applyZoom() {
+    cal.el.page.style.width = Math.round(fitWidth() * cal.zoom) + "px";
+    cal.el.page.style.setProperty("--z", String(Math.min(cal.zoom, 3)));
+    $("calZoomVal").textContent = Math.round(cal.zoom * 100) + "%";
+    $("calZoomOut").disabled = cal.zoom <= ZMIN + 0.001; $("calZoomIn").disabled = cal.zoom >= ZMAX - 0.001;
+    queueSize();
+  }
+  // zoom keeping the point under (clientX, clientY) fixed on screen
+  function setZoom(z, clientX, clientY) {
+    z = Math.min(ZMAX, Math.max(ZMIN, z));
+    const sc = cal.el.scroller, sr = sc.getBoundingClientRect(), pr = cal.el.page.getBoundingClientRect();
+    if (clientX == null) { clientX = sr.left + sr.width / 2; clientY = sr.top + sr.height / 2; }
+    const fx = (clientX - pr.left) / pr.width, fy = (clientY - pr.top) / pr.height;
+    cal.zoom = z; applyZoom();
+    const nr = cal.el.page.getBoundingClientRect();
+    sc.scrollLeft += (nr.left + fx * nr.width) - clientX;
+    sc.scrollTop += (nr.top + fy * nr.height) - clientY;
+  }
+  $("calZoomIn").onclick = () => setZoom(cal.zoom * 1.5);
+  $("calZoomOut").onclick = () => setZoom(cal.zoom / 1.5);
+  $("calZoomFit").onclick = () => { setZoom(1); cal.el.scroller.scrollTo(0, 0); };
+  cal.el.scroller.addEventListener("wheel", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return; // plain scroll moves around; Ctrl/⌘ + scroll (and trackpad pinch) zooms
+    e.preventDefault();
+    setZoom(cal.zoom * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
+  }, { passive: false });
+  // touch / pen / mouse gestures on the calendar area
+  const pts = new Map();
+  let pan = null;
+  cal.el.scroller.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".cal-confirm")) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      // second finger: stop any stroke in progress and start pinching
+      if (cal.live) { cal.live = null; redraw(); }
+      const [a, b] = [...pts.values()];
+      cal.gesture = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cal.zoom, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      pan = null;
+    } else if (pts.size === 1 && cal.tool === "move" && !(e.pointerType === "mouse" && e.button !== 0)) {
+      pan = { x: e.clientX, y: e.clientY, sl: cal.el.scroller.scrollLeft, st: cal.el.scroller.scrollTop };
+      cal.el.board.classList.add("grabbing");
+      try { cal.el.scroller.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  }, true);
+  cal.el.scroller.addEventListener("pointermove", (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = cal.gesture;
+    if (g && pts.size >= 2) {
+      e.preventDefault();
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      setZoom(g.z * d / Math.max(1, g.d), mx, my);
+      cal.el.scroller.scrollLeft -= mx - g.mx; cal.el.scroller.scrollTop -= my - g.my;
+      g.mx = mx; g.my = my;
+    } else if (pan) {
+      cal.el.scroller.scrollLeft = pan.sl - (e.clientX - pan.x);
+      cal.el.scroller.scrollTop = pan.st - (e.clientY - pan.y);
+    }
+  });
+  const lift = (e) => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2 && cal.gesture) { cal.gesture = pts.size ? cal.gesture : null; if (!pts.size) cal.gesture = null; }
+    if (!pts.size) { pan = null; cal.gesture = null; cal.el.board.classList.remove("grabbing"); }
+  };
+  cal.el.scroller.addEventListener("pointerup", lift);
+  cal.el.scroller.addEventListener("pointercancel", lift);
+  // double-tap / double-click a day in Move mode: zoom so that day fills most of the screen
+  cal.el.scroller.addEventListener("dblclick", (e) => {
+    if (cal.tool !== "move") return;
+    const bb = cal.el.board.getBoundingClientRect();
+    if (e.clientX < bb.left || e.clientX > bb.right || e.clientY < bb.top || e.clientY > bb.bottom) return;
+    const sc = cal.el.scroller, br = cal.el.board.getBoundingClientRect();
+    const col = Math.floor((e.clientX - br.left) / (br.width / 7)), row = Math.floor((e.clientY - br.top) / (br.height / 6));
+    const cw = fitWidth() / 7, ch = fitWidth() * (8 / 7) / 6; // a day box at 100%
+    const target = Math.min(ZMAX, (sc.clientWidth * 0.9) / cw, (sc.clientHeight * 0.9) / ch);
+    const z = cal.zoom >= target * 0.95 ? 1 : target;
+    setZoom(z);
+    const nb = cal.el.board.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    const cx = nb.left + (col + 0.5) * nb.width / 7, cy = nb.top + (row + 0.5) * nb.height / 6;
+    sc.scrollLeft += cx - (sr.left + sr.width / 2); sc.scrollTop += cy - (sr.top + sr.height / 2);
+  });
+  $("calPrev").onclick = () => { cal.month = (cal.month + 11) % 12; renderMonth(); };
+  $("calNext").onclick = () => { cal.month = (cal.month + 1) % 12; renderMonth(); };
+  MONTHS.forEach((name, i) => {
+    const b = el("button", "cal-chip", name.slice(0, 3)); b.type = "button";
+    b.onclick = () => { cal.month = i; renderMonth(); };
+    cal.el.chips.append(b);
+  });
+
+  function openCal() {
+    cal.lastFocus = document.activeElement;
+    cal.el.overlay.hidden = false; document.body.style.overflow = "hidden";
+    $("calTools").hidden = !canWrite;
+    setTool(cal.tool);
+    renderMonth();
+    requestAnimationFrame(applyZoom);
+    $("calClose").focus();
+  }
+  function closeCal() {
+    cal.el.overlay.hidden = true; document.body.style.overflow = "";
+    if (cal.unsub) { cal.unsub(); cal.unsub = null; }
+    if (cal.lastFocus && cal.lastFocus.focus) cal.lastFocus.focus();
+  }
+  $("calBtn").onclick = openCal;
+  $("calClose").onclick = closeCal;
+  document.addEventListener("keydown", (e) => {
+    if (cal.el.overlay.hidden) return;
+    if (e.key === "Escape") { if (!cal.el.confirm.hidden) cal.el.confirm.hidden = true; else closeCal(); }
+    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); $("calUndo").click(); }
+    else if (e.key === "ArrowLeft" && e.target === document.body) $("calPrev").click();
+    else if (e.key === "ArrowRight" && e.target === document.body) $("calNext").click();
+  });
+  window.addEventListener("resize", () => { if (!cal.el.overlay.hidden) applyZoom(); });
+
+  // ---- note details: full text, street map of the place, and your own photo
+  const sheetEl = { overlay: $("sheetOverlay"), body: $("sheetBody"), when: $("sheetWhen") };
+  let detailId = null, detailMap = null, detailFocus = null, photoBusy = false, photoMsg = "", fullPhoto = new Map();
+  let styleP = null;
+  function loadStyle() {
+    if (!styleP) styleP = fetch("https://tiles.openfreemap.org/styles/dark").then((r) => { if (!r.ok) throw new Error("style"); return r.json(); }).then(simplifyStyle);
+    styleP.catch(() => { styleP = null; });
+    return styleP.then((st) => JSON.parse(JSON.stringify(st)));
+  }
+  function openDetail(id) {
+    if (!notes.find((n) => n.id === id)) return;
+    detailFocus = document.activeElement; detailId = id; photoMsg = "";
+    sheetEl.overlay.hidden = false; document.body.style.overflow = "hidden";
+    renderDetail(true);
+    $("sheetClose").focus();
+  }
+  function closeDetail() {
+    sheetEl.overlay.hidden = true; document.body.style.overflow = "";
+    detailId = null;
+    if (detailMap) { detailMap.remove(); detailMap = null; }
+    if (detailFocus && detailFocus.focus) detailFocus.focus();
+  }
+  async function loadFullPhoto(n) {
+    if (!n.thumb || fullPhoto.has(n.id) || !db) return;
+    try { const d = await db.collection("photos").doc(n.id).get(); if (d && d.data) { fullPhoto.set(n.id, d.data); if (detailId === n.id) renderDetail(false); } } catch (e) {}
+  }
+  function renderDetail(first) {
+    const n = notes.find((x) => x.id === detailId);
+    if (!n) { closeDetail(); return; }
+    refreshDetail.sig = JSON.stringify([n.title, n.body, n.tags, n.place, n.thumb ? n.photoAt : 0]);
+    const b = sheetEl.body; b.textContent = "";
+    sheetEl.when.textContent = new Date(n.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+
+    // photo
+    const ph = el("div", "sheet-photo" + (n.thumb ? "" : " empty"));
+    if (n.thumb) {
+      const im = el("img"); im.src = fullPhoto.get(n.id) || n.thumb; im.alt = "Photo for " + (n.title || "this note");
+      ph.append(im);
+    } else if (canWrite) {
+      const add = el("button", "photo-add"); add.type = "button"; add.innerHTML = CAMERA_SVG; add.append(photoBusy ? "Adding photo…" : "Add a photo");
+      add.disabled = photoBusy; add.onclick = () => $("photoFile").click();
+      ph.append(add);
+    } else ph.hidden = true;
+    b.append(ph);
+    if (n.thumb && canWrite) {
+      const acts = el("div", "photo-actions");
+      const ch = el("button", "del", photoBusy ? "Saving…" : "Change photo"); ch.type = "button"; ch.disabled = photoBusy; ch.onclick = () => $("photoFile").click();
+      const rm = el("button", "del", "Remove photo"); rm.type = "button"; rm.disabled = photoBusy; rm.onclick = removePhoto;
+      acts.append(ch, rm); b.append(acts);
+    }
+    if (photoMsg) b.append(el("div", "photo-status", photoMsg));
+    loadFullPhoto(n);
+
+    const h = el("h2", null, n.title || "Untitled note"); h.id = "sheetTitle"; b.append(h);
+
+    // place: name, address, street map, links
+    if (validPlace(n.place)) {
+      const box = el("div", "place-box");
+      const line = el("div", "place-line"); line.innerHTML = PIN_SVG;
+      const txt = el("div", null, n.place.name || "Location"); if (n.place.address) txt.append(el("small", null, n.place.address));
+      line.append(txt); box.append(line);
+      const mm = el("div", "mini-map"); mm.id = "miniMap"; box.append(mm);
+      const links = el("div", "place-links");
+      const big = el("button", null, "Show on big map"); big.type = "button"; big.onclick = () => { const id = n.id; closeDetail(); openMap(id); };
+      const q = n.place.lat + "," + n.place.lng;
+      const g = el("a", null, "Directions"); g.href = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q); g.target = "_blank"; g.rel = "noopener";
+      links.append(big, g); box.append(links);
+      b.append(box);
+      drawMiniMap(mm, n);
+    }
+
+    if (n.body) b.append(el("p", "sheet-text", n.body));
+
+    const foot = el("div", "sheet-foot");
+    const tags = el("div", "tags");
+    for (const t of n.tags || []) { const tg = el("button", "tag", "#" + t); tg.type = "button"; tg.title = "Show notes tagged #" + t; tg.onclick = () => { closeDetail(); if (!activeTags.includes(t)) toggleTag(t); }; tags.append(tg); }
+    foot.append(tags);
+    if (canWrite) {
+      const acts = el("div", "actions");
+      if (pendingDelete === n.id) {
+        const c = el("div", "confirm"); c.append("Delete this note?");
+        const no = el("button", null, "Keep"); no.type = "button"; no.onclick = () => { pendingDelete = null; renderDetail(false); };
+        const yes = el("button", "yes", "Delete"); yes.type = "button"; yes.onclick = () => { const id = n.id; closeDetail(); removeNote(id); };
+        c.append(no, yes); acts.append(c);
+      } else {
+        const ed = el("button", "del", "Edit"); ed.type = "button"; ed.onclick = () => { closeDetail(); startEdit(n); const card = document.querySelector(".post.editing"); if (card) card.scrollIntoView({ block: "center" }); };
+        const d = el("button", "del", "Delete"); d.type = "button"; d.onclick = () => { pendingDelete = n.id; renderDetail(false); };
+        acts.append(ed, d);
+      }
+      foot.append(acts);
+    }
+    b.append(foot);
+    if (first) sheetEl.overlay.querySelector(".sheet").scrollTop = 0;
+  }
+  async function drawMiniMap(container, n) {
+    if (detailMap) { detailMap.remove(); detailMap = null; }
+    if (!window.maplibregl) { container.textContent = ""; container.append(el("div", "map-empty", "The map couldn't load.")); return; }
+    let style;
+    try { style = await loadStyle(); } catch (e) { container.append(el("div", "map-empty", "The map couldn't load. Check your connection.")); return; }
+    if (!container.isConnected) return;
+    const m = new maplibregl.Map({ container, style, center: [n.place.lng, n.place.lat], zoom: 15, attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false, scrollZoom: false, cooperativeGestures: false });
+    m.touchZoomRotate.disableRotation();
+    m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    detailMap = m;
+    m.on("load", () => {
+      if (detailMap !== m) return;
+      m.addSource("here", { type: "geojson", data: { type: "Feature", geometry: { type: "Point", coordinates: [n.place.lng, n.place.lat] }, properties: { label: n.place.name || "" } } });
+      m.addLayer({ id: "here", type: "circle", source: "here", paint: { "circle-color": "#fff", "circle-radius": 7, "circle-stroke-color": "#000", "circle-stroke-width": 2.5 } });
+      m.addLayer({ id: "here-label", type: "symbol", source: "here", layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-anchor": "left", "text-offset": [1, 0] }, paint: { "text-color": "#fff", "text-halo-color": "#000", "text-halo-width": 1.6 } });
+    });
+  }
+
+  // photos: resized in the browser, full photo in its own record, small copy on the note for the feed
+  function loadImage(file) {
+    return new Promise((res, rej) => { const url = URL.createObjectURL(file); const im = new Image(); im.onload = () => { URL.revokeObjectURL(url); res(im); }; im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("image")); }; im.src = url; });
+  }
+  function shrink(img, maxSide, quality) {
+    const sc = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+    const x = c.getContext("2d"); x.fillStyle = "#000"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", quality);
+  }
+  $("photoFile").onchange = async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    const id = detailId; if (!file || !id || !db) return;
+    if (!/^image\//.test(file.type)) { photoMsg = "That file isn't a photo. Pick a JPG, PNG or HEIC image."; renderDetail(false); return; }
+    photoBusy = true; photoMsg = ""; renderDetail(false);
+    try {
+      const img = await loadImage(file);
+      let side = 1600, q = 0.82, full = shrink(img, side, q);
+      while (full.length > 850000 && side > 600) { side = Math.round(side * 0.8); q = Math.max(0.6, q - 0.05); full = shrink(img, side, q); }
+      const thumb = shrink(img, 520, 0.72);
+      await db.collection("photos").doc(id).set({ data: full, t: Date.now() });
+      await db.collection("notes").doc(id).update({ thumb, photoAt: Date.now() });
+      fullPhoto.set(id, full);
+      photoMsg = "";
+    } catch (err) {
+      photoMsg = err && err.message === "image" ? "This photo couldn't be opened here. Try a JPG or PNG, or take a screenshot of it." : "The photo didn't save. Check your connection and try again.";
+    }
+    photoBusy = false;
+    if (detailId === id) renderDetail(false);
+  };
+  async function removePhoto() {
+    const id = detailId; if (!id || !db) return;
+    photoBusy = true; renderDetail(false);
+    try { await db.collection("notes").doc(id).update({ thumb: null, photoAt: null }); await db.collection("photos").doc(id).delete(); fullPhoto.delete(id); photoMsg = ""; }
+    catch (e) { photoMsg = "The photo wasn't removed. Try again."; }
+    photoBusy = false; if (detailId === id) renderDetail(false);
+  }
+  const CAMERA_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>';
+  $("sheetClose").onclick = closeDetail;
+  sheetEl.overlay.addEventListener("click", (e) => { if (e.target === sheetEl.overlay) closeDetail(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheetEl.overlay.hidden) closeDetail(); });
+
+  // ---- events
+  $("composer").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+  $("body").addEventListener("input", updatePostBtn);
+  $("title").addEventListener("input", updatePostBtn);
+  $("body").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } });
+  const ti = $("tagInput");
+  ti.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+      if (ti.value.trim()) { e.preventDefault(); addTag(ti.value); ti.value = ""; renderDraft(); }
+      else if (e.key === "Enter") { e.preventDefault(); if (e.metaKey || e.ctrlKey) submit(); }
+    } else if (e.key === "Backspace" && !ti.value && draftTags.length) { draftTags.pop(); renderDraft(); }
+  });
+  ti.addEventListener("input", renderDraft);
+  ti.addEventListener("focus", renderDraft);
+  ti.addEventListener("blur", () => setTimeout(renderDraft, 120));
+  $("tagfield").addEventListener("click", (e) => { if (e.target === e.currentTarget) ti.focus(); });
+  setInterval(() => { if (notes.length && !pendingDelete && !editingId && !document.activeElement?.closest?.(".post")) renderFeed(); }, 60000);
+
+  // ---- boot: Firebase (Google sign-in + Firestore, synced across devices, works offline)
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyC5zneNZG-Zs1vzpg7rtxQrafVaaYvNYNo",
+    authDomain: "avastfu-tagboard.firebaseapp.com",
+    projectId: "avastfu-tagboard",
+    storageBucket: "avastfu-tagboard.firebasestorage.app",
+    messagingSenderId: "806596615925",
+    appId: "1:806596615925:web:5a85c494152624104eefbc"
+  };
+  const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
+  let fb = null, uid = null, unsub = null;
+
+  const gate = $("gate"), app = $("app");
+  function showGate(msg, ready) {
+    gate.hidden = false; app.hidden = true; $("signOutBtn").hidden = true; $("mapBtn").hidden = true; $("calBtn").hidden = true; if (!cal.el.overlay.hidden) closeCal(); $("exportBtn").hidden = true; $("importBtn").hidden = true;
+    $("count").textContent = ""; $("syncState").hidden = true;
+    if (msg) $("gateMsg").textContent = msg;
+    $("signInBtn").disabled = !ready;
+  }
+  function showApp() {
+    gate.hidden = true; app.hidden = false; $("signOutBtn").hidden = false; $("mapBtn").hidden = false; $("calBtn").hidden = false; $("exportBtn").hidden = false; $("importBtn").hidden = false;
+  }
+
+  // Wraps a Firestore write so the UI never hangs while offline: the change shows instantly
+  // and syncs when the connection returns; real errors (like permissions) still surface.
+  function softWrite(p) {
+    return Promise.race([p, new Promise((r) => setTimeout(r, 1500))]);
+  }
+  function makeDb() {
+    const { doc, collection, setDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot } = fb.fs;
+    return {
+      collection: (path) => {
+        const segs = String(path || "notes").split("/");
+        const col = () => collection(fb.db, "users", uid, ...segs);
+        return {
+          doc: (id) => {
+            const ref = id ? doc(col(), id) : doc(col());
+            return {
+              id: ref.id,
+              set: (data) => softWrite(setDoc(ref, data)),
+              update: (data) => softWrite(updateDoc(ref, data)),
+              delete: () => softWrite(deleteDoc(ref)),
+              get: async () => { const snap = await fb.fs.getDoc(ref); return snap.exists() ? snap.data() : null; },
+            };
+          },
+          orderBy: (field, dir) => ({
+            onSnapshot: (next, err) => onSnapshot(query(col(), orderBy(field, dir || "asc")), { includeMetadataChanges: true }, next, err),
+          }),
+        };
+      },
+    };
+  }
+
+  function listen() {
+    const { collection, query, orderBy, onSnapshot } = fb.fs;
+    if (unsub) unsub();
+    let first = true;
+    unsub = onSnapshot(
+      query(collection(fb.db, "users", uid, "notes"), orderBy("createdAt", "desc")),
+      { includeMetadataChanges: true },
+      (snap) => {
+        notes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const st = $("syncState");
+        st.hidden = false;
+        st.textContent = snap.metadata.hasPendingWrites ? "Saving…" : (snap.metadata.fromCache && !navigator.onLine ? "Offline · Saved on Device" : "Synced");
+        if (editingId && !notes.some((n) => n.id === editingId)) { editingId = null; editDraft = null; }
+        if (editingId) renderRail(); else render();
+        if (first) { first = false; if (!notes.length) notice("No notes yet. Write one above, or tap Import to bring in a backup file."); else notice(""); }
+      },
+      (err) => notice("Couldn't load your notes (" + (err.code || "error") + "). Check your connection and reload.")
+    );
+  }
+
+  // Backup: export to a file; import merges into your synced notes (newer edit wins)
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify({ app: "tagboard", exportedAt: new Date().toISOString(), notes }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tagboard-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    notice("Backup saved to your downloads.");
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file || !fb || !uid) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const incoming = Array.isArray(data) ? data : data.notes;
+      if (!Array.isArray(incoming)) throw new Error("bad");
+      const { writeBatch, doc, collection } = fb.fs;
+      const byId = new Map(notes.map((n) => [n.id, n]));
+      const stamp = (x) => x.editedAt || x.createdAt || 0;
+      let batch = writeBatch(fb.db), inBatch = 0, added = 0, updated = 0;
+      const commits = [];
+      for (const n of incoming) {
+        if (!n || typeof n !== "object" || !n.id) continue;
+        const cur = byId.get(n.id);
+        const { id, ...body } = n;
+        if (cur && stamp(n) <= stamp(cur)) {
+          if (!validPlace(cur.place) && validPlace(body.place)) {
+            batch.update(doc(collection(fb.db, "users", uid, "notes"), cur.id), { place: cleanPlace(body.place) });
+            updated++;
+            if (++inBatch === 400) { commits.push(batch.commit()); batch = writeBatch(fb.db); inBatch = 0; }
+          }
+          continue;
+        }
+        const clean = {
+          title: String(body.title || "").slice(0, 120),
+          body: String(body.body || "").slice(0, 5000),
+          tags: Array.isArray(body.tags) ? body.tags.map((t) => norm(String(t))).filter(Boolean).slice(0, 8) : [],
+          createdAt: Number(body.createdAt) || Date.now(),
+        };
+        if (body.editedAt) clean.editedAt = Number(body.editedAt);
+        if (body.example) clean.example = true;
+        if (validPlace(body.place)) clean.place = cleanPlace(body.place);
+        batch.set(doc(collection(fb.db, "users", uid, "notes"), String(id).replace(/[\/]/g, "_")), clean);
+        cur ? updated++ : added++;
+        if (++inBatch === 400) { commits.push(batch.commit()); batch = writeBatch(fb.db); inBatch = 0; }
+      }
+      if (inBatch) commits.push(batch.commit());
+      await softWrite(Promise.all(commits));
+      notice(`Imported backup: ${added} new note${added === 1 ? "" : "s"}, ${updated} updated.`);
+    } catch (err) { notice("That file isn't a Tagboard backup. Pick the .json file you exported."); }
+  };
+
+  $("signInBtn").onclick = async () => {
+    if (!fb) return;
+    const { signInWithPopup, signInWithRedirect, GoogleAuthProvider } = fb.auth;
+    const provider = new GoogleAuthProvider();
+    $("signInBtn").disabled = true;
+    try { await signInWithPopup(fb.authInst, provider); }
+    catch (e) {
+      if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) {
+        try { await signInWithRedirect(fb.authInst, provider); return; } catch (e2) { e = e2; }
+      }
+      if (e && e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        $("gateMsg").textContent = e.code === "auth/unauthorized-domain"
+          ? "This web address isn't approved in Firebase yet. Add it under Authentication → Settings → Authorized domains."
+          : "Sign-in didn't finish (" + (e.code || "error") + "). Try again.";
+      }
+    } finally { $("signInBtn").disabled = false; }
+  };
+  $("signOutBtn").onclick = async () => { if (fb) { if (unsub) { unsub(); unsub = null; } await fb.auth.signOut(fb.authInst); } };
+
+  render(); renderDraft();
+  showGate("Loading…", false);
+  (async () => {
+    if (!FIREBASE_CONFIG) { showGate("This copy isn't connected to a database yet.", false); return; }
+    try {
+      const [appMod, authMod, fsMod] = await Promise.all([
+        import(FB + "firebase-app.js"), import(FB + "firebase-auth.js"), import(FB + "firebase-firestore.js"),
+      ]);
+      const fbApp = appMod.initializeApp(FIREBASE_CONFIG);
+      let fdb;
+      try {
+        fdb = fsMod.initializeFirestore(fbApp, { localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() }) });
+      } catch (e) { fdb = fsMod.getFirestore(fbApp); }
+      const authInst = authMod.getAuth(fbApp);
+      try { await authMod.setPersistence(authInst, authMod.browserLocalPersistence); } catch (e) {}
+      fb = { app: fbApp, db: fdb, fs: fsMod, auth: authMod, authInst };
+      try { await authMod.getRedirectResult(authInst); } catch (e) {}
+      authMod.onAuthStateChanged(authInst, (user) => {
+        if (user) {
+          uid = user.uid; db = makeDb(); canWrite = true;
+          $("composer").hidden = false; showApp(); updatePostBtn(); listen();
+        } else {
+          uid = null; db = null; notes = []; activeTags = [];
+          if (unsub) { unsub(); unsub = null; }
+          showGate("Sign in with Google to open your notes. Only you can see them.", true);
+          render();
+        }
+      });
+    } catch (e) {
+      showGate("Couldn't reach the notes service. Check your connection and reload the page.", false);
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>
