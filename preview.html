@@ -497,7 +497,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     for (const n of list) {
       if (n.id === editingId && editDraft) { place(renderEditor(n)); continue; }
       const card = el("article", "post openable" + (n.id === justAdded ? " new" : ""));
-      if (n.thumb) { const ph = el("div", "post-photo"); const im = el("img"); im.src = n.thumb; im.alt = ""; im.loading = "lazy"; ph.append(im); card.append(ph); }
       card.tabIndex = 0; card.setAttribute("aria-label", (n.title || "Note") + ", open details");
       card.addEventListener("click", (e) => { if (e.target.closest("button, a, input, textarea, .confirm")) return; openDetail(n.id); });
       card.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target === card) openDetail(n.id); });
