@@ -965,8 +965,48 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
     ctx.globalCompositeOperation = "source-over";
   }
-  function drawStroke(ctx, s, from) {
+  // smooth pencil: quadratic curves through midpoints (incremental, so live drawing and redraws match exactly)
+  function smoothPiece(ctx, s, W, H, sx, sy, sp, cx, cy, ex, ey, ep) {
+    const len = Math.hypot(cx - sx, cy - sy) + Math.hypot(ex - cx, ey - cy);
+    const n = Math.max(1, Math.ceil(len / (1.5 * cal.dpr)));
+    let px = sx, py = sy, pp = sp;
+    for (let i = 1; i <= n; i++) {
+      const t = i / n, a = (1 - t) * (1 - t), b = 2 * (1 - t) * t, c = t * t;
+      const x = a * sx + b * cx + c * ex, y = a * sy + b * cy + c * ey, pr = sp + (ep - sp) * t;
+      if (s.e) eraserSegment(ctx, s, px, py, x, y, W); else pencilSegment(ctx, s, s._rand, px, py, pp, x, y, pr, W);
+      px = x; py = y; pp = pr;
+    }
+  }
+  function smoothSegment(ctx, s, k, W, H) { // the piece that ends halfway between point k-1 and point k
+    const p = s.p, P = (i) => [p[i * 3] * W, p[i * 3 + 1] * H, p[i * 3 + 2]];
+    const [x1, y1, p1] = P(k - 1), [x2, y2, p2] = P(k);
+    const ex = (x1 + x2) / 2, ey = (y1 + y2) / 2, ep = (p1 + p2) / 2;
+    if (k === 1) { smoothPiece(ctx, s, W, H, x1, y1, p1, (x1 + ex) / 2, (y1 + ey) / 2, ex, ey, ep); return; }
+    const [x0, y0, p0] = P(k - 2);
+    smoothPiece(ctx, s, W, H, (x0 + x1) / 2, (y0 + y1) / 2, (p0 + p1) / 2, x1, y1, ex, ey, ep);
+  }
+  function smoothTail(ctx, s, W, H) { // from the last midpoint to the final point
+    const p = s.p, n = p.length / 3; if (n < 2) return;
+    const i = (n - 1) * 3, j = (n - 2) * 3;
+    const sx = (p[j] + p[i]) / 2 * W, sy = (p[j + 1] + p[i + 1]) / 2 * H, sp = (p[j + 2] + p[i + 2]) / 2;
+    const ex = p[i] * W, ey = p[i + 1] * H;
+    smoothPiece(ctx, s, W, H, sx, sy, sp, (sx + ex) / 2, (sy + ey) / 2, ex, ey, p[i + 2]);
+  }
+  function drawStroke(ctx, s, from, finish) {
     const W = ctx.canvas.width, H = ctx.canvas.height, p = s.p;
+    if (s.v === 2) {
+      if (!s._rand || !from) s._rand = rng(hashId(s.id));
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#fff";
+      if (!from) {
+        if (s.e) eraserSegment(ctx, s, p[0] * W, p[1] * H, p[0] * W + 0.1, p[1] * H, W);
+        else pencilSegment(ctx, s, s._rand, p[0] * W, p[1] * H, p[2], p[0] * W + 0.5, p[1] * H + 0.5, p[2], W);
+      }
+      const n = p.length / 3;
+      for (let k = Math.max(1, from || 0); k < n; k++) smoothSegment(ctx, s, k, W, H);
+      if (finish !== false && (!from || finish)) smoothTail(ctx, s, W, H);
+      ctx.globalAlpha = 1;
+      return;
+    }
     if (!s._rand || !from) s._rand = rng(hashId(s.id));
     ctx.fillStyle = "#fff"; ctx.strokeStyle = "#fff";
     const start = Math.max(3, (from || 0) * 3);
@@ -988,7 +1028,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     const all = cal.strokes.concat([...cal.pending.values()].filter((s) => !ids.has(s.id)));
     all.sort((a, b) => a.t - b.t);
     for (const s of all) drawStroke(ctx, s, 0);
-    if (cal.live) drawStroke(ctx, cal.live, 0);
+    if (cal.live) drawStroke(ctx, cal.live, 0, false);
   }
   function sizeCanvas() {
     const c = cal.el.canvas, r = cal.el.board.getBoundingClientRect();
@@ -1057,26 +1097,42 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     if (!canDraw() || cal.gesture || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.preventDefault(); cal.el.canvas.setPointerCapture(e.pointerId);
     const id = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    cal.live = { id, t: Date.now(), w: (cal.tool === "eraser" ? 4 : cal.size === "bold" ? 5 : 2.6) / cal.zoom, e: cal.tool === "eraser", p: pointFrom(e) };
+    const first = pointFrom(e);
+    cal.live = { id, v: 2, t: Date.now(), w: (cal.tool === "eraser" ? 4 : cal.size === "bold" ? 5 : 2.6) / cal.zoom, e: cal.tool === "eraser", p: first.slice() };
     cal.live._rand = rng(hashId(id));
-    drawStroke(cal.ctx, cal.live, 0);
+    cal.sm = { x: first[0], y: first[1], pr: first[2], raw: first };
+    drawStroke(cal.ctx, cal.live, 0, false);
   });
   cal.el.canvas.addEventListener("pointermove", (e) => {
     const s = cal.live; if (!s) return;
     e.preventDefault();
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     const W = cal.ctx.canvas.width;
+    const H = cal.ctx.canvas.height, sm = cal.sm;
     for (const ev of evs.length ? evs : [e]) {
-      const pt = pointFrom(ev), n = s.p.length;
-      if (Math.hypot((pt[0] - s.p[n - 3]) * W, (pt[1] - s.p[n - 2]) * cal.ctx.canvas.height) < 1.5 * cal.dpr) continue;
+      const raw = pointFrom(ev); sm.raw = raw;
+      // move a steadied point toward the pen: slow, shaky movement is smoothed a lot, quick strokes follow closely
+      const dist = Math.hypot((raw[0] - sm.x) * W, (raw[1] - sm.y) * H) / cal.dpr;
+      const a = Math.min(0.65, Math.max(0.18, dist / 22));
+      sm.x += (raw[0] - sm.x) * a; sm.y += (raw[1] - sm.y) * a; sm.pr += (raw[2] - sm.pr) * 0.3;
+      const pt = [Math.round(sm.x * 1e4) / 1e4, Math.round(sm.y * 1e4) / 1e4, Math.round(sm.pr * 100) / 100], n = s.p.length;
+      if (Math.hypot((pt[0] - s.p[n - 3]) * W, (pt[1] - s.p[n - 2]) * H) < 2 * cal.dpr) continue;
       if (n >= 12000) break;
       s.p.push(...pt);
-      drawStroke(cal.ctx, s, s.p.length / 3 - 1);
+      drawStroke(cal.ctx, s, s.p.length / 3 - 1, false);
     }
   });
   const endStroke = () => {
     const s = cal.live; if (!s) return;
     cal.live = null;
+    // finish the line where the pen lifted, then draw its last curve piece
+    const sm = cal.sm, n = s.p.length;
+    if (sm && sm.raw && n >= 3 && Math.hypot((sm.raw[0] - s.p[n - 3]) * cal.ctx.canvas.width, (sm.raw[1] - s.p[n - 2]) * cal.ctx.canvas.height) > 2 * cal.dpr) {
+      const end = [Math.round(((s.p[n - 3] + sm.raw[0]) / 2) * 1e4) / 1e4, Math.round(((s.p[n - 2] + sm.raw[1]) / 2) * 1e4) / 1e4, s.p[n - 1]];
+      s.p.push(...end); drawStroke(cal.ctx, s, s.p.length / 3 - 1, false);
+    }
+    drawStroke(cal.ctx, s, s.p.length / 3, true);
+    cal.sm = null;
     cal.pending.set(s.id, s); cal.mine.push(s.id); updateCalButtons();
     saveStroke(s);
   };
