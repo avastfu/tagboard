@@ -231,14 +231,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .map-empty { position: absolute; z-index: 900; inset: 0; display: grid; place-items: center; text-align: center; color: #A3A3A3; font-size: 0.85rem; padding: 24px; pointer-events: none; }
 .map-overlay :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* 2027 calendar: always black like the map, grey grid, white pencil drawings */
-.cal-overlay { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); font-family: var(--mono); }
+.cal-overlay { touch-action: manipulation; position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); font-family: var(--mono); }
 .cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #262626; }
 .cal-bar h2 { margin: 0; font: 400 1.5rem var(--mark); color: #A3A3A3; }
 .cal-bar .icon-btn { color: #fff; border-color: #404040; }
 .cal-nav { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; }
 .cal-nav h3 { margin: 0; flex: 1 1 auto; text-align: center; font: 700 1.05rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .cal-nav .icon-btn { color: #fff; border-color: #404040; font: 700 1rem var(--mono); }
-.cal-chips { display: flex; gap: 6px; overflow-x: auto; padding: 6px 16px 10px; scrollbar-width: none; }
+.cal-chips { display: flex; gap: 6px; overflow-x: auto; padding: 6px 16px 10px; scrollbar-width: none; touch-action: pan-x; }
 .cal-chips::-webkit-scrollbar { display: none; }
 .cal-chip { flex: none; font: 700 0.7rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; border: 1px solid #404040; background: #0A0A0A; color: #A3A3A3; cursor: pointer; }
 .cal-chip[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; }
@@ -1158,7 +1158,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   // ---- zoom: pinch, Ctrl/⌘ + scroll, − / + buttons, double-tap a day (Move), Fit
   const ZMIN = 1, ZMAX = 6;
   let sizeQueued = false;
-  function queueSize() { if (sizeQueued) return; sizeQueued = true; requestAnimationFrame(() => { sizeQueued = false; sizeCanvas(); }); }
+  function queueSize() { clearTimeout(sizeQueued); sizeQueued = setTimeout(() => { sizeQueued = false; sizeCanvas(); }, 90); }
   function fitWidth() { const sc = cal.el.scroller; return Math.max(200, Math.min(sc.clientWidth - 32, 900)); }
   function applyZoom() {
     cal.el.page.style.width = Math.round(fitWidth() * cal.zoom) + "px";
@@ -1186,62 +1186,89 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     e.preventDefault();
     setZoom(cal.zoom * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
   }, { passive: false });
-  // touch / pen / mouse gestures on the calendar area
+  // ---- touch gestures. One finger draws (or pans in Move). Two fingers pinch-zoom and pan:
+  // while fingers are down the month is scaled visually (fast, no redraw); on release it settles at the new zoom.
+  const sc = cal.el.scroller, page = cal.el.page;
   const pts = new Map();
-  let pan = null;
-  cal.el.scroller.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".cal-confirm")) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2) {
-      // second finger: stop any stroke in progress and start pinching
-      if (cal.live) { cal.live = null; redraw(); }
-      const [a, b] = [...pts.values()];
-      cal.gesture = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cal.zoom, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
-      pan = null;
-    } else if (pts.size === 1 && cal.tool === "move" && !(e.pointerType === "mouse" && e.button !== 0)) {
-      pan = { x: e.clientX, y: e.clientY, sl: cal.el.scroller.scrollLeft, st: cal.el.scroller.scrollTop };
-      cal.el.board.classList.add("grabbing");
-      try { cal.el.scroller.setPointerCapture(e.pointerId); } catch (err) {}
-    }
-  }, true);
-  cal.el.scroller.addEventListener("pointermove", (e) => {
-    if (!pts.has(e.pointerId)) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const g = cal.gesture;
-    if (g && pts.size >= 2) {
-      e.preventDefault();
-      const [a, b] = [...pts.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      setZoom(g.z * d / Math.max(1, g.d), mx, my);
-      cal.el.scroller.scrollLeft -= mx - g.mx; cal.el.scroller.scrollTop -= my - g.my;
-      g.mx = mx; g.my = my;
-    } else if (pan) {
-      cal.el.scroller.scrollLeft = pan.sl - (e.clientX - pan.x);
-      cal.el.scroller.scrollTop = pan.st - (e.clientY - pan.y);
-    }
-  });
-  const lift = (e) => {
-    pts.delete(e.pointerId);
-    if (pts.size < 2 && cal.gesture) { cal.gesture = pts.size ? cal.gesture : null; if (!pts.size) cal.gesture = null; }
-    if (!pts.size) { pan = null; cal.gesture = null; cal.el.board.classList.remove("grabbing"); }
-  };
-  cal.el.scroller.addEventListener("pointerup", lift);
-  cal.el.scroller.addEventListener("pointercancel", lift);
-  // double-tap / double-click a day in Move mode: zoom so that day fills most of the screen
-  cal.el.scroller.addEventListener("dblclick", (e) => {
-    if (cal.tool !== "move") return;
-    const bb = cal.el.board.getBoundingClientRect();
-    if (e.clientX < bb.left || e.clientX > bb.right || e.clientY < bb.top || e.clientY > bb.bottom) return;
-    const sc = cal.el.scroller, br = cal.el.board.getBoundingClientRect();
-    const col = Math.floor((e.clientX - br.left) / (br.width / 7)), row = Math.floor((e.clientY - br.top) / (br.height / 6));
+  let pan = null, pinch = null, lastTap = null, touchZoomAt = 0;
+  const capture = (id) => { try { sc.setPointerCapture(id); } catch (err) {} };
+  function zoomToDay(x, y) {
+    const br = cal.el.board.getBoundingClientRect();
+    if (x < br.left || x > br.right || y < br.top || y > br.bottom) return;
+    const col = Math.min(6, Math.floor((x - br.left) / (br.width / 7))), row = Math.min(5, Math.floor((y - br.top) / (br.height / 6)));
     const cw = fitWidth() / 7, ch = fitWidth() * (8 / 7) / 6; // a day box at 100%
     const target = Math.min(ZMAX, (sc.clientWidth * 0.9) / cw, (sc.clientHeight * 0.9) / ch);
-    const z = cal.zoom >= target * 0.95 ? 1 : target;
-    setZoom(z);
+    cal.zoom = cal.zoom >= target * 0.95 ? 1 : target; applyZoom();
     const nb = cal.el.board.getBoundingClientRect(), sr = sc.getBoundingClientRect();
-    const cx = nb.left + (col + 0.5) * nb.width / 7, cy = nb.top + (row + 0.5) * nb.height / 6;
-    sc.scrollLeft += cx - (sr.left + sr.width / 2); sc.scrollTop += cy - (sr.top + sr.height / 2);
+    sc.scrollLeft += nb.left + (col + 0.5) * nb.width / 7 - (sr.left + sr.width / 2);
+    sc.scrollTop += nb.top + (row + 0.5) * nb.height / 6 - (sr.top + sr.height / 2);
+  }
+  function startPinch() {
+    if (cal.live) { cal.live = null; cal.sm = null; redraw(); } // a second finger cancels the line just started
+    pan = null; cal.el.board.classList.remove("grabbing");
+    for (const id of pts.keys()) capture(id);
+    const [a, b] = [...pts.values()];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, pr = page.getBoundingClientRect();
+    pinch = { d0: Math.max(12, Math.hypot(a.x - b.x, a.y - b.y)), z0: cal.zoom, mx0: mx, my0: my, mx, my, k: 1,
+      fx: (mx - pr.left) / pr.width, fy: (my - pr.top) / pr.height };
+    page.style.transformOrigin = (mx - pr.left) + "px " + (my - pr.top) + "px";
+    page.style.willChange = "transform";
+    cal.gesture = pinch;
+  }
+  function movePinch() {
+    const [a, b] = [...pts.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    pinch.mx = (a.x + b.x) / 2; pinch.my = (a.y + b.y) / 2;
+    const z = Math.min(ZMAX, Math.max(ZMIN, pinch.z0 * d / pinch.d0));
+    pinch.k = z / pinch.z0;
+    page.style.transform = "translate(" + (pinch.mx - pinch.mx0) + "px," + (pinch.my - pinch.my0) + "px) scale(" + pinch.k + ")";
+    $("calZoomVal").textContent = Math.round(z * 100) + "%";
+  }
+  function endPinch() {
+    const g = pinch; pinch = null; cal.gesture = null;
+    page.style.transform = ""; page.style.transformOrigin = ""; page.style.willChange = "";
+    cal.zoom = Math.min(ZMAX, Math.max(ZMIN, g.z0 * g.k)); applyZoom();
+    // keep the spot that was between your fingers under them
+    const nr = page.getBoundingClientRect();
+    sc.scrollLeft += nr.left + g.fx * nr.width - g.mx;
+    sc.scrollTop += nr.top + g.fy * nr.height - g.my;
+  }
+  sc.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".cal-confirm")) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.isPrimary) { pts.clear(); if (pinch) endPinch(); pan = null; } // a fresh touch: forget any finger whose lift we missed
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: performance.now() });
+    if (pts.size === 2 && !pinch) startPinch();
+    else if (pts.size === 1 && cal.tool === "move") {
+      pan = { x: e.clientX, y: e.clientY, sl: sc.scrollLeft, st: sc.scrollTop };
+      cal.el.board.classList.add("grabbing"); capture(e.pointerId);
+    }
+  }, true);
+  sc.addEventListener("pointermove", (e) => {
+    const pt = pts.get(e.pointerId); if (!pt) return;
+    pt.x = e.clientX; pt.y = e.clientY;
+    if (pinch && pts.size >= 2) { e.preventDefault(); movePinch(); }
+    else if (pan) { sc.scrollLeft = pan.sl - (e.clientX - pan.x); sc.scrollTop = pan.st - (e.clientY - pan.y); }
   });
+  const lift = (e) => {
+    const pt = pts.get(e.pointerId); if (!pt) return;
+    pts.delete(e.pointerId);
+    if (pinch && pts.size < 2) endPinch();
+    if (!pts.size) { pan = null; cal.el.board.classList.remove("grabbing"); }
+    // double-tap (touch/pen) in Move mode zooms to that day; mice use dblclick below
+    if (e.type === "pointerup" && e.pointerType !== "mouse" && cal.tool === "move" && !pts.size) {
+      const still = Math.hypot(pt.x - pt.x0, pt.y - pt.y0) < 12 && performance.now() - pt.t < 300;
+      if (still && lastTap && performance.now() - lastTap.t < 350 && Math.hypot(pt.x - lastTap.x, pt.y - lastTap.y) < 40) { lastTap = null; touchZoomAt = performance.now(); zoomToDay(pt.x, pt.y); }
+      else lastTap = still ? { x: pt.x, y: pt.y, t: performance.now() } : null;
+    }
+  };
+  // listen on the whole window so a finger that lifts over the toolbar is still counted as lifted
+  window.addEventListener("pointerup", lift, true);
+  window.addEventListener("pointercancel", lift, true);
+  // mouse double-click (phones also send one after a double-tap, which was already handled above)
+  sc.addEventListener("dblclick", (e) => { if (cal.tool === "move" && performance.now() - touchZoomAt > 700) zoomToDay(e.clientX, e.clientY); });
+  // stop iPhone Safari from zooming the whole page while you pinch the calendar
+  for (const t of ["gesturestart", "gesturechange", "gestureend"]) cal.el.overlay.addEventListener(t, (e) => e.preventDefault(), { passive: false });
   $("calPrev").onclick = () => { cal.month = (cal.month + 11) % 12; renderMonth(); };
   $("calNext").onclick = () => { cal.month = (cal.month + 1) % 12; renderMonth(); };
   MONTHS.forEach((name, i) => {
