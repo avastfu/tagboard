@@ -941,23 +941,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function hashId(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
-  // Pencil: stamps of tiny, semi-transparent white grains scattered along the path, thicker with more pressure
+  // Pen: a plain, solid white line with round ends, a little thicker with more stylus pressure
   function pencilSegment(ctx, s, rand, x0, y0, p0, x1, y1, p1, W) {
-    const base = (s.w || 2.2) * W / 1000;
-    const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
-    const steps = Math.max(1, Math.ceil(len / Math.max(0.7, base * 0.35)));
-    for (let i = 0; i < steps; i++) {
-      const f = i / steps, pr = p0 + (p1 - p0) * f;
-      const r = base * (0.55 + pr * 0.9);
-      const cx = x0 + dx * f, cy = y0 + dy * f;
-      const grains = 2 + Math.round(r * 0.9);
-      for (let g = 0; g < grains; g++) {
-        const ang = rand() * Math.PI * 2, rad = r * Math.sqrt(rand());
-        const sz = (0.5 + rand() * 1.1) * cal.dpr;
-        ctx.globalAlpha = (0.12 + rand() * 0.38) * (0.6 + pr * 0.6);
-        ctx.fillRect(cx + Math.cos(ang) * rad - sz / 2, cy + Math.sin(ang) * rad - sz / 2, sz, sz);
-      }
-    }
+    const base = (s.w || 2.2) * W / 1000, pr = (p0 + p1) / 2;
+    ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#fff"; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(0.8, base * (0.8 + pr * 1.0));
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
   }
   function eraserSegment(ctx, s, x0, y0, x1, y1, W) {
     ctx.globalCompositeOperation = "destination-out"; ctx.globalAlpha = 1;
