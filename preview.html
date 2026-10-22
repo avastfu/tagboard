@@ -221,6 +221,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 #mapCanvas .maplibregl-canvas { cursor: grab; }
 .map-card { position: absolute; z-index: 1000; left: 16px; bottom: 24px; right: 72px; max-width: 360px; background: #0A0A0A; border: 1px solid #404040; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .map-card h3 { margin: 0; font: 700 0.95rem var(--mono); color: #fff; }
+.map-card .card-photo { margin: -14px -16px 4px; border-radius: 12px 12px 0 0; overflow: hidden; background: #171717; }
+.map-card .card-photo img { display: block; width: 100%; max-height: min(220px, 32vh); object-fit: cover; }
 .map-card .addr { font-size: 0.72rem; color: #A3A3A3; }
 .map-card p { margin: 0; font-size: 0.8rem; color: #E5E5E5; white-space: pre-wrap; max-height: 6.5em; overflow: auto; }
 .map-card .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
@@ -873,6 +875,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     if (!n || !validPlace(n.place)) return;
     activePin = id;
     const c = mapEl.card; c.textContent = "";
+    if (n.thumb) {
+      // show the small copy right away, then swap in the full photo
+      const ph = el("div", "card-photo"), im = el("img"); im.alt = "Photo for " + (n.title || n.place.name);
+      im.src = fullPhoto.get(id) || n.thumb; ph.append(im); c.append(ph);
+      if (!fullPhoto.has(id) && db) db.collection("photos").doc(id).get().then((d) => {
+        if (d && d.data) { fullPhoto.set(id, d.data); if (activePin === id && im.isConnected) im.src = d.data; }
+      }).catch(() => {});
+    }
     c.append(el("h3", null, n.title || n.place.name));
     c.append(el("div", "addr", [n.place.name !== n.title ? n.place.name : "", n.place.address].filter(Boolean).join(" · ")));
     if (n.body) c.append(el("p", null, n.body));
